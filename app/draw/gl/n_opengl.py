@@ -14,9 +14,9 @@ frame_count = 0
 
 n_window = NWindow()
 n_shader = NShader()
-#n_vertex = NVertex()
 n_net = NNet(n_window)
-n_tree = NTree(4)
+
+n_tree = NTree(4, n_net)
 
 
 def render():
@@ -42,9 +42,6 @@ def render():
     gl.glUseProgram(n_shader.shader_program)
     n_shader.update_projection(n_window.get_projection_matrix())
 
-    #n_vertex.draw_nodes()
-    # n_vertex.draw_plane()
-
     n_tree.draw()
     glfw.swap_buffers(n_window.window)
 
@@ -54,9 +51,6 @@ def on_viewport_updated():
 
 
 def main():
-
-
-
     n_window.create_window()
     n_window.set_render_func(render)
     n_window.set_viewport_updated_func(on_viewport_updated)
@@ -64,27 +58,19 @@ def main():
     glEnable(GL_DEPTH_TEST)
     version = glGetString(GL_VERSION)
     print(f"OpenGL version: {version.decode('utf-8')}")
+    n_shader.compile()
 
-    n_net.init(10000000, [50000, 100])
+    n_net.init(1000000000, [500000000, 1900, 190, 1])
+    n_net.generate_net()
+    n_tree.update_size()
+    n_window.calculate_min_zoom(n_net)
+    #n_tree.set_size(n_net.total_width, n_net.total_height)
 
-
-    total_width, total_height = n_window.window_to_normalized_cords(n_net.total_width, n_net.total_height)
-    n_tree.set_size(total_width, total_height)
     n_tree.generate()
-    n_tree.generate_edge_leafs_grid()
-
-    nodes = n_net.generate_net()
-    n_tree.feed(nodes)
-
-    #print(n_tree.dump())
     n_tree.create_view()
 
-    n_shader.compile()
-    # n_vertex.create_plane(-1,-1,1,1)
-    #n_vertex.initialize(nodes)
     n_window.start_main_loop()
     glfw.terminate()
-    #n_vertex.clean()
     gl.glDeleteProgram(n_shader.shader_program)
 
 

@@ -1,7 +1,4 @@
-import ctypes
-
 import OpenGL.GL as gl
-import numpy as np
 
 # manage shaders
 

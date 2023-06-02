@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 
@@ -95,6 +97,8 @@ class BSPLeaf():
     def traverse(self, viewport, visible, not_visible):
         is_visible, is_fully_visible = self.is_visible(viewport)
 
+        # x, y, w, h, zoom = viewport
+
         if is_fully_visible:
             visible.append(self)
             return True
@@ -168,7 +172,10 @@ class BSPTree:
 
 
     def generate(self):
+        print("generating tree....")
+        start_time = time.time()
         self.leaf.generate(self.depth, self.depth)
+        print("Tree generated", time.time() - start_time)
 
     def traverse(self, viewport, visible, not_visible):
         self.leaf.traverse(viewport, visible, not_visible)

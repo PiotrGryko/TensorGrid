@@ -22,10 +22,23 @@ class NWindow:
         self.last_mouse_x = 0.0
         self.last_mouse_y = 0.0
         self.zoom_factor = 1.0
+        self.min_zoom = 0.01
+        self.zoom_step = 0.01
         self.aspect_ratio = self.width / self.height
         self.projection = Projection()
         self.render_func = None
         self.viewport_updated_func = None
+
+    def calculate_min_zoom(self, n_net):
+        content_width, content_height = n_net.total_width, n_net.total_height
+        w,h = self.window_to_normalized_cords(self.width,self.height)
+        min_zoom_x = w / content_width / 1.2
+        min_zoom_y = h / content_height / 1.2
+        self.min_zoom = min_zoom_x if min_zoom_x < min_zoom_y else min_zoom_y
+        self.zoom_factor = self.min_zoom
+        self.zoom_step = self.min_zoom/2
+        self.mouse_scroll_callback(self.window,1,1)
+        print("zoom calculated", min_zoom_x, min_zoom_y, self.min_zoom)
 
     def create_window(self):
         # Initialize OpenGL and create a window
@@ -104,11 +117,11 @@ class NWindow:
 
     def mouse_scroll_callback(self, window, x_offset, y_offset):
 
-        delta = - y_offset * 0.01
+        delta = - y_offset * self.zoom_step
         self.zoom_factor += delta
 
-        if self.zoom_factor <= 0.01:
-            self.zoom_factor = 0.01
+        if self.zoom_factor <= self.min_zoom:
+            self.zoom_factor = self.min_zoom
 
         mx = self.last_mouse_x - self.width / 2
         my = self.last_mouse_y - self.height / 2
