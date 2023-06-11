@@ -1,7 +1,9 @@
+import ctypes
 import math
 import OpenGL.GL as gl
 
 import numpy as np
+from PIL import Image
 
 
 class NVertex():
@@ -16,6 +18,7 @@ class NVertex():
         self.plane_vbo = None
         self.plane_color_vbo = None
         self.plane_indices = []
+
 
     def clean(self):
         gl.glDeleteBuffers(2, self.nodes_vbo)
@@ -46,12 +49,6 @@ class NVertex():
             x1, y2  # Top-left
         ], dtype=np.float32)
         r, g, b = color
-        # vertices = np.array([
-        #     -0.5, -0.5,  # Bottom-left
-        #     0.5, -0.5,  # Bottom-right
-        #     0.5, 0.5,  # Top-right
-        #     -0.5, 0.5  # Top-left
-        # ], dtype=np.float32)
 
         # Define the colors for each vertex
         colors = np.array([
@@ -95,19 +92,23 @@ class NVertex():
         gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, ebo)
         gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, self.plane_indices.nbytes, self.plane_indices, gl.GL_STATIC_DRAW)
 
-    def initialize(self, positions):
+    def create_nodes(self, positions, colors = None):
         # Vertex data for a single circle
         dx, dy = positions.shape
+        radius = self.radius
         self.num_instances = dx
 
-        instance_colors = np.random.uniform(0.0, 1.0, (self.num_instances, 3)).astype(np.float32)
+        if colors is not None:
+            instance_colors = colors
+        else:
+            instance_colors = np.random.uniform(0.0, 1.0, (self.num_instances, 3)).astype(np.float32)
         instance_positions = positions  # np.random.uniform(-10.0, 10.0, (self.num_instances, 2)).astype(np.float32)
 
         vertices = []
         for i in range(self.num_segments):
             theta = 2.0 * math.pi * float(i) / float(self.num_segments)
-            x = self.radius * math.cos(theta)
-            y = self.radius * math.sin(theta)
+            x = radius * math.cos(theta)
+            y = radius * math.sin(theta)
             vertices.extend([x, y])
         vertices = np.array(vertices, dtype=np.float32)
 

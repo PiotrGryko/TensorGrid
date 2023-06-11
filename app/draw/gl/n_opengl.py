@@ -6,6 +6,7 @@ from OpenGL.GL import *
 
 from app.draw.gl.n_net import NNet
 from app.draw.gl.n_shader import NShader
+from app.draw.gl.n_texture import NTexture
 from app.draw.gl.n_tree import NTree
 from app.draw.gl.n_window import NWindow
 
@@ -14,16 +15,19 @@ frame_count = 0
 
 n_window = NWindow()
 n_shader = NShader()
+n_texture_shader = NShader()
 n_net = NNet(n_window)
 
-n_tree = NTree(4, n_net)
-
+n_tree = NTree(0, n_net)
+#n_texture = NTexture()
 
 def render():
     global frame_count, start_time
     # Clear the screen
     # gl.glClearColor(0.0, 0.0, 1.0, 1.0)
-    gl.glClearColor(253 / 255, 226 / 255, 243 / 255, 1)
+
+    r,g,b,a = n_net.color_low
+    gl.glClearColor(r,g,b,a)
     gl.glClear(gl.GL_COLOR_BUFFER_BIT)
     gl.glClear(gl.GL_DEPTH_BUFFER_BIT)
 
@@ -38,11 +42,19 @@ def render():
         start_time = time.time()
         print(fps_text)
 
-    # Use the shader program
-    gl.glUseProgram(n_shader.shader_program)
-    n_shader.update_projection(n_window.get_projection_matrix())
 
+
+    n_texture_shader.use()
+    n_texture_shader.update_projection(n_window.get_projection_matrix())
+    n_tree.draw_textures(n_texture_shader)
+
+    # Use the shader program
+    n_shader.use()
+    n_shader.update_projection(n_window.get_projection_matrix())
     n_tree.draw()
+
+
+
     glfw.swap_buffers(n_window.window)
 
 
@@ -56,19 +68,26 @@ def main():
     n_window.set_viewport_updated_func(on_viewport_updated)
 
     glEnable(GL_DEPTH_TEST)
+    gl.glEnable(gl.GL_BLEND)
+    gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
     version = glGetString(GL_VERSION)
     print(f"OpenGL version: {version.decode('utf-8')}")
-    n_shader.compile()
+    n_shader.compile_vertices_program()
+    n_texture_shader.compile_textures_program()
 
-    n_net.init(1000000000, [500000000, 1900, 190, 1])
+    # Init net
+    n_net.init(100000, [10000,10000])
+    # generate nodes grid
     n_net.generate_net()
+    # update tree size and depth using grid size
     n_tree.update_size()
+    # calculate min zoom using grid size
     n_window.calculate_min_zoom(n_net)
-    #n_tree.set_size(n_net.total_width, n_net.total_height)
-
+    # create textures
+    n_tree.create_textures(n_net,n_window.min_zoom)
+    # generate tree
     n_tree.generate()
-    n_tree.create_view()
-
+    # start render loop
     n_window.start_main_loop()
     glfw.terminate()
     gl.glDeleteProgram(n_shader.shader_program)

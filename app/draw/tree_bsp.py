@@ -58,8 +58,9 @@ class BSPLeaf():
         return BSPLeaf(x, y, w, h, level)
 
     # split in 4
-    def generate(self, step, depth):
-        if step > 0:
+    def generate(self, depth,step=0):
+        if step < depth:
+            step+=1
             # 300.0 600.0 | 300.0 600.0
             self.children = [
                 self.create_child(
@@ -92,7 +93,7 @@ class BSPLeaf():
                 )
             ]
             for c in self.children:
-                c.generate(step - 1, depth)
+                c.generate(depth,step)
 
     def traverse(self, viewport, visible, not_visible):
         is_visible, is_fully_visible = self.is_visible(viewport)
@@ -174,7 +175,7 @@ class BSPTree:
     def generate(self):
         print("generating tree....")
         start_time = time.time()
-        self.leaf.generate(self.depth, self.depth)
+        self.leaf.generate(self.depth)
         print("Tree generated", time.time() - start_time)
 
     def traverse(self, viewport, visible, not_visible):

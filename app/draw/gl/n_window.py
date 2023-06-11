@@ -38,7 +38,7 @@ class NWindow:
         self.zoom_factor = self.min_zoom
         self.zoom_step = self.min_zoom/2
         self.mouse_scroll_callback(self.window,1,1)
-        print("zoom calculated", min_zoom_x, min_zoom_y, self.min_zoom)
+        print("Min zoom calculated:", self.min_zoom)
 
     def create_window(self):
         # Initialize OpenGL and create a window
