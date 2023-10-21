@@ -21,10 +21,11 @@ class NTreeLeaf(BSPLeaf):
         self.n_vertex = NVertex()
         self.nodes = []
         self.n_texture = None
+        self.mega_texture = None
 
     def create_nodes_view(self, n_net):
-        self.grid, self.colors  = n_net.get_positions_grid(self.x1, self.y1, self.x2, self.y2)
-        #flat_grid = self.grid[np.where(self.grid != n_net.default_value)]
+        self.grid, self.colors = n_net.get_positions_grid(self.x1, self.y1, self.x2, self.y2)
+        # flat_grid = self.grid[np.where(self.grid != n_net.default_value)]
         flat_array = np.reshape(self.grid, (-1, 2))
         self.nodes = flat_array
         if len(self.nodes) == 0:
@@ -43,7 +44,7 @@ class NTreeLeaf(BSPLeaf):
 
     def draw_vertices(self):
         self.n_vertex.draw_nodes()
-        #self.n_vertex.draw_plane()
+        # self.n_vertex.draw_plane()
 
     def draw_texture(self):
         if self.n_texture:
@@ -97,17 +98,25 @@ class NTree(BSPTree):
             self.visible_bounds = (x1, y1, x2, y2)
             self.draw_dirty = True
 
+    def create_mega_texture(self, n_net):
+        img_data, img_width, img_height = n_net.get_mega_texture()
+        texture = NTexture()
+        texture.create_from_data(0, 0, self.width, self.height, img_data, img_width, img_height)
+        self.mega_texture = texture
+
     def create_textures(self, n_net, min_zoom):
         print("Greate zoom textures")
         start_time = time.time()
 
         self.min_zoom = min_zoom
-
-        self.zoom_step =1 if self.depth ==0 else (self.max_zoom - self.min_zoom) / (self.depth)
+        self.zoom_step = 1 if self.depth == 0 else (self.max_zoom - self.min_zoom) / (self.depth)
 
         materials = []
-        for i in range(self.depth, 0, -1):
-            img_data, img_width, img_height = n_net.get_texture(0, 0, self.width, self.height, i)
+        if self.depth>0:
+            for i in range(self.depth-1, 0, -1):
+                img_data, img_width, img_height = n_net.get_texture(0, 0, self.width, self.height, i)
+                materials.append((img_data, img_width, img_height))
+            img_data, img_width, img_height = n_net.get_mega_texture()
             materials.append((img_data, img_width, img_height))
 
         for index, m in enumerate(materials):
@@ -121,7 +130,6 @@ class NTree(BSPTree):
                 texture.add_second_texture_from_data(img_data, img_width, img_height)
             self.textures.append(texture)
         print("Textures generated", time.time() - start_time, "zoom levels", len(self.textures))
-
 
         # for i in range(self.depth, 0, -1):
         #     texture = NTexture()
@@ -137,25 +145,52 @@ class NTree(BSPTree):
         # self.n_vertex.create_plane(self.x1, self.y1, self.x2, self.y2, self.color)
         # self.n_texture.create(self.x1, self.y1, self.x2, self.y2)
 
+    def draw_mega_texture(self, n_shader):
+        x, y, w, h, zoom = self.viewport
+        zoom_threshold = self.max_zoom + 0.1
+        if zoom > zoom_threshold:
+            return
+        factor = 0.0
+        if zoom > self.max_zoom and zoom < zoom_threshold:
+            max_delta = zoom_threshold - self.max_zoom
+            delta = zoom - self.max_zoom
+            factor = delta / max_delta
+            factor = factor
+            print(factor, zoom)
+        n_shader.update_fading_factor(factor)
+
+        self.mega_texture.draw()
+
     def draw_textures(self, n_shader):
         x, y, w, h, zoom = self.viewport
-        if zoom > self.max_zoom:
+
+        zoom_threshold = self.max_zoom + 0.1
+        if zoom > zoom_threshold:
             return
 
-        zoom_norm = zoom - self.min_zoom
+        if zoom > self.max_zoom and zoom < zoom_threshold:
+            max_delta = zoom_threshold - self.max_zoom
+            delta = zoom - self.max_zoom
+            factor = delta / max_delta
+            factor = factor
+            print(factor, zoom)
+            n_shader.update_fading_factor(factor)
+            texture_index = len(self.textures)-1
 
-        texture_index = int((zoom_norm) / self.zoom_step)
+        elif zoom < self.max_zoom:
 
+            zoom_norm = zoom - self.min_zoom
+            texture_index = int((zoom_norm) / self.zoom_step)
 
-        cur_zoom_step = texture_index * self.zoom_step
-        next_zoom_step = (texture_index+1) * self.zoom_step
-        step_delta = (zoom_norm-cur_zoom_step)/(next_zoom_step-cur_zoom_step)
+            cur_zoom_step = texture_index * self.zoom_step
+            next_zoom_step = (texture_index + 1) * self.zoom_step
+            step_delta = (zoom_norm - cur_zoom_step) / (next_zoom_step - cur_zoom_step)
 
-        #print("index", texture_index,len(self.textures), "cur", cur_zoom_step, "next",next_zoom_step, "zoom",zoom, "step",self.zoom_step, "delta",step_delta)
+            # print("index", texture_index,len(self.textures), "cur", cur_zoom_step, "next",next_zoom_step, "zoom",zoom, "step",self.zoom_step, "delta",step_delta)
 
-        n_shader.update_fading_factor(step_delta)
+            n_shader.update_fading_factor(step_delta)
 
-
+        n_shader.set_tex2_enabled(zoom<self.max_zoom)
         self.textures[texture_index].draw()
 
         # if self.draw_dirty:

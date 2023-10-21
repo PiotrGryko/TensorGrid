@@ -44,14 +44,16 @@ def render():
 
 
 
-    n_texture_shader.use()
-    n_texture_shader.update_projection(n_window.get_projection_matrix())
-    n_tree.draw_textures(n_texture_shader)
 
     # Use the shader program
     n_shader.use()
     n_shader.update_projection(n_window.get_projection_matrix())
     n_tree.draw()
+
+    n_texture_shader.use()
+    n_texture_shader.update_projection(n_window.get_projection_matrix())
+    n_tree.draw_textures(n_texture_shader)
+    #n_tree.draw_mega_texture(n_texture_shader)
 
 
 
@@ -76,7 +78,7 @@ def main():
     n_texture_shader.compile_textures_program()
 
     # Init net
-    n_net.init(100000, [10000,10000])
+    n_net.init(100000000, [10000,100000,1000000])
     # generate nodes grid
     n_net.generate_net()
     # update tree size and depth using grid size
@@ -85,6 +87,7 @@ def main():
     n_window.calculate_min_zoom(n_net)
     # create textures
     n_tree.create_textures(n_net,n_window.min_zoom)
+    #n_tree.create_mega_texture(n_net)
     # generate tree
     n_tree.generate()
     # start render loop

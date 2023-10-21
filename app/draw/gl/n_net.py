@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt
 from matplotlib._tight_bbox import adjust_bbox
+from scipy.ndimage import gaussian_filter
 
 
 class Layer:
@@ -112,7 +113,7 @@ class NNet:
                              'terrain', 'terrain_r', 'turbo', 'turbo_r', 'twilight', 'twilight_r', 'twilight_shifted',
                              'twilight_shifted_r', 'viridis', 'viridis_r', 'winter', 'winter_r']
 
-        self.cmap = plt.cm.get_cmap('jet')
+        self.cmap = plt.cm.get_cmap('jet_r')
         self.color_low = self.cmap(-1)
 
     def init(self, input_size, layers_sizes):
@@ -199,11 +200,26 @@ class NNet:
         plt.close()
         print("Plot generated", time.time() - start_time)
 
+    def get_mega_texture(self):
+        start_time = time.time()
+        #
+        # smoothed_grid =self.grid # gaussian_filter(self.grid, sigma=2.0)
+        #
+        # print("smoothed", self.grid.shape, smoothed_grid.shape)
+
+        w, h =self.grid.shape
+        colors = (self.cmap(self.grid) * 255).astype(np.uint8)
+        colors = colors[::-1]
+
+
+
+        print("Mega texture generated", time.time() - start_time)
+        return colors, h, w
     def get_texture(self, x1, y1, x2, y2, factor=1):
         # print(f"NNet get texture ", factor)
         start_time = time.time()
-        # fig, ax = plt.subplots()
-        fig, ax = plt.subplots(dpi = (1/factor)*800)
+        fig, ax = plt.subplots()
+        #fig, ax = plt.subplots(dpi = (1/factor)*800)
         ax.grid(False)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -220,9 +236,9 @@ class NNet:
         new_grid = new_grid[::grid_factor, ::grid_factor]
 
         if factor < 3:
-            interpolation = "nearest"
+            interpolation = "mitchell"
         elif factor < 4:
-            interpolation = "nearest"
+            interpolation = "mitchell"
         elif factor < 6:
             interpolation = "mitchell"
         else:
@@ -240,6 +256,8 @@ class NNet:
         buffer = io.BytesIO()
         canvas.print_png(buffer)
         image_data = buffer.getvalue()
+
+
         #
         image_width, image_height = fig.canvas.get_width_height()
         # Open the image from bytes
@@ -248,7 +266,9 @@ class NNet:
         image_rgba = image.convert('RGBA')
         # Get the raw pixel data as a numpy array
         image_data = np.array(image_rgba)
+        print(image_data.shape)
         # plt.savefig("gl/tiles/test2.png")
+        print(image_data[100,100])
         plt.close(fig)
         print("Texture generated", time.time() - start_time, "width", image_width, "height", image_height, "factor",
               grid_factor)
