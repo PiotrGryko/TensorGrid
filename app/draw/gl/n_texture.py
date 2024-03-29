@@ -156,14 +156,6 @@ class Material:
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
 
-        # image = Image.open(filepath)
-        # image.show()
-
-        # img_data = np.array(image)
-
-        # image_width, image_height = image.width, image.height
-        # print(image, image_width, image_height)
-
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE,
                         img_data)
         error = gl.glGetError()

@@ -23,6 +23,7 @@ class NWindow:
         self.last_mouse_y = 0.0
         self.zoom_factor = 1.0
         self.min_zoom = 0.01
+        self.max_zoom = 1
         self.zoom_step = 0.01
         self.aspect_ratio = self.width / self.height
         self.projection = Projection()
@@ -36,9 +37,10 @@ class NWindow:
         min_zoom_y = h / content_height / 1.2
         self.min_zoom = min_zoom_x if min_zoom_x < min_zoom_y else min_zoom_y
         self.zoom_factor = self.min_zoom
-        self.zoom_step = self.min_zoom/2
+        self.zoom_step =  (self.max_zoom - self.min_zoom)/1000  #self.min_zoom/2
         self.mouse_scroll_callback(self.window,1,1)
-        print("Min zoom calculated:", self.min_zoom)
+        print(w,h,content_width,content_height)
+        print("Min zoom calculated:", self.min_zoom, self.zoom_factor, self.zoom_step)
 
     def create_window(self):
         # Initialize OpenGL and create a window
@@ -128,6 +130,9 @@ class NWindow:
         zoom_x, zoom_y = self.window_to_normalized_cords(mx, my)
         self.projection.zoom(zoom_x, zoom_y, self.zoom_factor)
         self.on_viewport_updated()
+
+        zoom_percent = self.zoom_factor / self.max_zoom
+        #print("zoom: ", "{:.0%}".format(zoom_percent))
 
     def mouse_button_callback(self, window, button, action, mods):
         if button == glfw.MOUSE_BUTTON_RIGHT:

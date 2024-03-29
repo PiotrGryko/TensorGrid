@@ -1,7 +1,7 @@
 import math
 import time
 
-from app.draw.tree_plane import PlaneTree
+from app.draw.pyglet.tree_plane import PlaneTree
 
 layers = []
 tree = PlaneTree(0, 0,4)

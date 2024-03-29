@@ -30,7 +30,7 @@ class App:
         # self.shader = self.createShader("shaders/vertex.txt", "shaders/fragment.txt")
         # glUseProgram(self.shader)
         # glUniform1i(glGetUniformLocation(self.shader, "imageTexture"), 0)
-        self.wood_texture = Material("tiles/test.png")
+        self.wood_texture = Material("../gl/tiles/test.png")
         self.triangle = Triangle()
         self.mainLoop()
 

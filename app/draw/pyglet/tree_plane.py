@@ -3,8 +3,8 @@ import random
 import pyglet
 from pyglet.gl import GL_TRIANGLES
 
-from app.draw.helper import node_color, label_color, red_color
-from app.draw.tree_bsp import BSPTree, BSPLeaf
+from app.draw.pyglet.helper import node_color, red_color
+from app.draw.pyglet.tree_bsp import BSPTree, BSPLeaf
 
 
 class PlaneLeaf(BSPLeaf):

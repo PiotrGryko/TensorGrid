@@ -1,7 +1,7 @@
 import math
 
-from app.draw.helper import *
-from app.draw.meta import MetaContainer
+from app.draw.pyglet.helper import *
+from app.draw.pyglet.meta import MetaContainer
 from app.micrograd.nn import Neuron
 
 layers = []

@@ -4,14 +4,14 @@ from pyglet.gl import *
 from pyglet.gui import *
 from pyglet.math import Mat4
 
-from app.draw.camera import CenteredCamera
-from app.draw.net import update_net, on_window_update, on_net_clicked, on_net_hovered, on_net_long_clicked
-from app.draw.process import PygletProcess, SharedContainer
-from app.draw.gui import gui_batch, on_train_button_clicked, set_state_active_training, \
+from app.draw.pyglet.camera import CenteredCamera
+from app.draw.pyglet.net import update_net, on_window_update, on_net_clicked, on_net_hovered, on_net_long_clicked
+from app.draw.pyglet.process import PygletProcess, SharedContainer
+from app.draw.pyglet.gui import gui_batch, on_train_button_clicked, set_state_active_training, \
     on_generate_button_clicked, update_result_label, set_state_training_idle, update_loss_label, show_node_details, \
     on_node_details_clicked, \
     init_gui, gui_on_window_resize, on_gui_scroll, on_gui_drag, update_net_gui
-from app.draw.tree_net import generate_net2, draw_net2, on_window_update2
+from app.draw.pyglet.tree_net import generate_net2, draw_net2, on_window_update2
 from app.examples.hand_written_digits.digits_recognition import create_mlp
 
 print("init")

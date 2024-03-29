@@ -1,5 +1,6 @@
 import io
 import math
+import random
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -15,8 +16,23 @@ class Layer:
         self.column_offset = column_offset
         self.row_offset = row_offset
         self.size = size
-
+        self.size_x = 0
+        self.size_y = 0
         self.is_square = self.size > 20
+
+        # self.is_square = self.size > 20
+        # if self.is_square:
+        #     self.size_x = math.ceil(math.sqrt(self.size))
+        #     self.size_y = self.size_x
+        # else:
+        #     self.size_y = self.size
+        #     self.size_x = 1
+
+        self.max_batch_size = 50000000  # Numpy performance drops with large numbers
+        self.sublayers = []
+        # self.split()
+
+    def define_layer_size(self):
         if self.is_square:
             self.size_x = math.ceil(math.sqrt(self.size))
             self.size_y = self.size_x
@@ -24,10 +40,9 @@ class Layer:
             self.size_y = self.size
             self.size_x = 1
 
-        self.max_batch_size = 50000000  # Numpy performance drops with large numbers
-
-        self.sublayers = []
-        self.split()
+    def define_layer_offset(self, column_offset, row_offset):
+        self.column_offset = column_offset
+        self.row_offset = row_offset
 
     def split(self):
         if self.size > self.max_batch_size:
@@ -113,7 +128,17 @@ class NNet:
                              'terrain', 'terrain_r', 'turbo', 'turbo_r', 'twilight', 'twilight_r', 'twilight_shifted',
                              'twilight_shifted_r', 'viridis', 'viridis_r', 'winter', 'winter_r']
 
-        self.cmap = plt.cm.get_cmap('jet_r')
+        self.Interpolation_methods = [None, 'none', 'nearest', 'bilinear', 'bicubic', 'spline16', 'spline36', 'hanning',
+                                      'hamming',
+                                      'hermite', 'kaiser', 'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
+                                      'sinc', 'lanczos']
+
+        self.interpolation = random.choice(self.Interpolation_methods)
+        print("Interpolation option:", self.interpolation)
+
+        random_cmap = random.choice(self.cmap_options)
+        print("Color option:", random_cmap)
+        self.cmap = plt.cm.get_cmap(random_cmap)
         self.color_low = self.cmap(-1)
 
     def init(self, input_size, layers_sizes):
@@ -121,13 +146,25 @@ class NNet:
         start_time = time.time()
         all_layers = [input_size] + layers_sizes
         for index, l in enumerate(all_layers):
-            column_offset = sum([l.size_x for l in self.layers]) + len(self.layers)
-            row_offset = 0
-            self.layers.append(Layer(l, column_offset, row_offset))
+            grid_layer = Layer(l, 0, 0)
+            grid_layer.define_layer_size()
+            self.layers.append(grid_layer)
 
-        self.grid_columns_count = sum([l.size_x for l in self.layers]) + len(self.layers)
+        max_row_count = max(l.size_y for l in self.layers)
+        gap_between_layers = 20 # 10 columns
+        for index, grid_layer in enumerate(self.layers):
+            column_offset = sum([l.size_x for l in self.layers[:index]])
+            layer_offset = index * gap_between_layers
+            current_row_count = grid_layer.size_y
+            row_offset = 0
+            if current_row_count < max_row_count:
+                row_offset = int((max_row_count - current_row_count) / 2)
+            grid_layer.define_layer_offset(column_offset + layer_offset, row_offset)
+            grid_layer.split()
+
+        self.grid_columns_count = sum([l.size_x for l in self.layers]) + gap_between_layers * len(self.layers)
         self.grid_rows_count = max([l.size_y for l in self.layers])
-        self.total_width = self.grid_columns_count * self.node_gap_x
+        self.total_width = self.grid_columns_count * self.node_gap_x # + gap_between_layers * len(self.layers)
         self.total_height = self.grid_rows_count * self.node_gap_y
         self.grid = np.full((self.grid_rows_count, self.grid_columns_count), self.default_value).astype(np.float32)
         print("Net initialized", time.time() - start_time)
@@ -180,8 +217,6 @@ class NNet:
         # Customize the grid
         # ax.grid(color='gray')
 
-        methods = [None, 'none', 'nearest', 'bilinear', 'bicubic', 'spline16', 'spline36', 'hanning', 'hamming',
-                   'hermite', 'kaiser', 'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell', 'sinc', 'lanczos']
         new_grid = np.empty_like(self.grid)
         new_grid.fill(self.default_value)
         print(len(new_grid))
@@ -200,26 +235,14 @@ class NNet:
         plt.close()
         print("Plot generated", time.time() - start_time)
 
-    def get_mega_texture(self):
-        start_time = time.time()
-        #
-        # smoothed_grid =self.grid # gaussian_filter(self.grid, sigma=2.0)
-        #
-        # print("smoothed", self.grid.shape, smoothed_grid.shape)
-
-        w, h =self.grid.shape
-        colors = (self.cmap(self.grid) * 255).astype(np.uint8)
-        colors = colors[::-1]
-
-
-
-        print("Mega texture generated", time.time() - start_time)
-        return colors, h, w
     def get_texture(self, x1, y1, x2, y2, factor=1):
         # print(f"NNet get texture ", factor)
         start_time = time.time()
+
+        new_grid = self.get_subgrid(x1, y1, x2, y2)
+        grid_factor = factor * 10
+        new_grid = new_grid[::grid_factor, ::grid_factor]
         fig, ax = plt.subplots()
-        #fig, ax = plt.subplots(dpi = (1/factor)*800)
         ax.grid(False)
         ax.set_xticks([])
         ax.set_yticks([])
@@ -231,21 +254,7 @@ class NNet:
         ax.get_xaxis().set_visible(False)
         ax.get_yaxis().set_visible(False)
 
-        new_grid = self.get_subgrid(x1, y1, x2, y2)
-        grid_factor = factor * 10
-        new_grid = new_grid[::grid_factor, ::grid_factor]
-
-        if factor < 3:
-            interpolation = "mitchell"
-        elif factor < 4:
-            interpolation = "mitchell"
-        elif factor < 6:
-            interpolation = "mitchell"
-        else:
-            interpolation = "bicubic"
-        #new_grid = np.pad(new_grid, pad_width=1, constant_values=self.default_value)
-
-        ax.imshow(new_grid, cmap=self.cmap, alpha=1, origin='lower', interpolation=interpolation)
+        ax.imshow(new_grid, cmap=self.cmap, alpha=1, origin='lower', interpolation=self.interpolation)
         # image_width, image_height = fig.canvas.get_width_height()
         bbox = fig.get_tightbbox()
         # bbox=bbox.padded(1)
@@ -257,7 +266,6 @@ class NNet:
         canvas.print_png(buffer)
         image_data = buffer.getvalue()
 
-
         #
         image_width, image_height = fig.canvas.get_width_height()
         # Open the image from bytes
@@ -266,10 +274,37 @@ class NNet:
         image_rgba = image.convert('RGBA')
         # Get the raw pixel data as a numpy array
         image_data = np.array(image_rgba)
-        print(image_data.shape)
-        # plt.savefig("gl/tiles/test2.png")
-        print(image_data[100,100])
+        # print(image_data.shape)
+        # # plt.savefig("gl/tiles/test2.png")
+        # print(image_data[100,100])
         plt.close(fig)
+        print("Texture generated", time.time() - start_time, "width", image_width, "height", image_height, "factor",
+              grid_factor, "size", new_grid.size, "shape", new_grid.shape)
+        return image_data, image_width, image_height
+
+    def get_texture2(self, x1, y1, x2, y2, factor=1):
+        # print(f"NNet get texture ", factor)
+        start_time = time.time()
+
+        new_grid = self.get_subgrid(x1, y1, x2, y2)
+        grid_factor = factor
+        new_grid = new_grid[::grid_factor, ::grid_factor]
+        new_grid = self.scale_down_and_average(new_grid)
+
+        image_width = new_grid.shape[1]
+        image_height = new_grid.shape[0]
+
+        # image_height, image_width = self.scale_down_dimensions(new_grid.shape)
+        # Normalize the grid data to [0, 255] range
+        cmap_rbga = self.cmap(new_grid)
+        normalized_data = (cmap_rbga * 255).astype(np.uint8)
+        image = Image.fromarray(normalized_data)
+        image_rgba = image.convert('RGBA').resize((image_width, image_height))
+        image_rgba_flipped = image_rgba.transpose(Image.FLIP_TOP_BOTTOM)
+
+        # Get the raw pixel data as a numpy array
+        image_data = np.array(image_rgba_flipped)
+
         print("Texture generated", time.time() - start_time, "width", image_width, "height", image_height, "factor",
               grid_factor)
         return image_data, image_width, image_height
@@ -309,3 +344,88 @@ class NNet:
         color_values = self.cmap(subgrid[indices]).astype(np.float32)[:, :3]
 
         return positions, color_values
+
+    def scale_down_dimensions(self, shape, max_size=(8096, 8096)):
+        original_width, original_height = shape
+
+        # # Scale down the dimensions while preserving the aspect ratio
+        new_width = original_width
+        new_height = original_height
+
+        # Check if the new dimensions exceed the maximum size
+        if new_width > max_size[0]:
+            new_width = max_size[0]
+            new_height = int(original_height * (max_size[0] / original_width))
+        if new_height > max_size[1]:
+            new_height = max_size[1]
+            new_width = int(original_width * (max_size[1] / original_height))
+
+        return new_width, new_height
+
+    def scale_down_and_average(self, grid, max_size=(8096, 8096)):
+        # Get the dimensions of the original grid
+        height, width = grid.shape
+
+        # Calculate the aspect ratio of the original grid
+        aspect_ratio = width / height
+
+        # # Define the original 10x10 grid
+        original_grid = grid
+        # Define the pooling factor (2x smaller in each dimension)
+        # Get the dimensions of the grid
+        original_rows, original_cols = grid.shape
+
+        # Calculate the pooling factor separately for rows and columns
+        pooling_factor_rows = original_rows / max_size[0]
+        pooling_factor_cols = original_cols / max_size[1]
+
+        # Choose the smaller pooling factor to ensure the resulting grid fits within max_size
+        pooling_factor = max(pooling_factor_rows, pooling_factor_cols)
+        pooling_factor = int(pooling_factor)
+        if pooling_factor > 0:
+            # Calculate the number of rows and columns needed to pad the original grid
+            rows_to_pad = int(pooling_factor - (original_grid.shape[0] % pooling_factor))
+            cols_to_pad = int(pooling_factor - (original_grid.shape[1] % pooling_factor))
+
+            # Pad the original grid to make it evenly divisible by the pooling factor
+            padded_grid = np.pad(original_grid, ((0, rows_to_pad), (0, cols_to_pad)), mode='constant')
+
+            # Reshape the padded grid into non-overlapping blocks of the desired size
+            reshaped_grid = padded_grid.reshape(padded_grid.shape[0] // pooling_factor, pooling_factor,
+                                                padded_grid.shape[1] // pooling_factor, pooling_factor)
+
+            # Perform average pooling or max pooling to combine values in each block
+            # For example, to use average pooling:
+            pooled_grid = np.mean(reshaped_grid, axis=(1, 3))
+            # print(original_grid, original_grid.shape)
+            # print(pooled_grid, pooled_grid.shape)
+            original_grid = pooled_grid
+        return original_grid
+        #
+        #
+        #
+        # # Check if any of the dimensions exceed the maximum size
+        # if width > max_size[0] or height > max_size[1]:
+        #     # If either dimension exceeds the maximum size, adjust the dimensions
+        #     if aspect_ratio > 1:
+        #         # Width is larger, so resize width to max_size[0] and adjust height accordingly
+        #         new_width = max_size[0]
+        #         new_height = int(new_width / aspect_ratio)
+        #     else:
+        #         # Height is larger, so resize height to max_size[1] and adjust width accordingly
+        #         new_height = max_size[1]
+        #         new_width = int(new_height * aspect_ratio)
+        #     print(grid.shape)
+        #     print(new_height, new_width)
+        #     scaled_grid = np.mean(np.reshape(grid, (new_height, height // new_height, new_width, width // new_width)),
+        #                           axis=(1, 3))
+        # else:
+        #     # If neither dimension exceeds the maximum size, keep the original dimensions
+        #     new_height, new_width = height, width
+        #     scaled_grid = grid
+        #
+        #
+        # # Reshape the grid to have the new dimensions
+        #
+        #
+        # return scaled_grid

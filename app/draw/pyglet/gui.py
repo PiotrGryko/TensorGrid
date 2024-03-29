@@ -4,7 +4,7 @@ import pyglet
 from pyglet import image
 from pyglet.graphics import Group
 
-from app.draw.helper import generate_line_color
+from app.draw.pyglet.helper import generate_line_color
 
 width = 1280
 height = 1280
