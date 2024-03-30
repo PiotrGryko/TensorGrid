@@ -7,7 +7,6 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from app.draw.gl.n_net import NNet
 from app.draw.gl.n_shader import NShader
-from app.draw.gl.n_texture import NTexture
 from app.draw.gl.n_tree import NTree
 from app.draw.gl.n_window import NWindow
 
@@ -20,7 +19,6 @@ n_texture_shader = NShader()
 n_net = NNet(n_window)
 
 n_tree = NTree(0, n_net)
-#n_texture = NTexture()
 
 def render():
     global frame_count, start_time
@@ -51,11 +49,13 @@ def render():
     n_shader.update_projection(n_window.get_projection_matrix())
     n_tree.draw_vertices()
     #n_tree.draw_leafs_backgrounds()
+    #n_tree.draw_mega_leaf()
 
     n_texture_shader.use()
     n_texture_shader.update_projection(n_window.get_projection_matrix())
     n_tree.draw_textures(n_texture_shader)
     #n_tree.draw_leafs_textures()
+    #n_tree.draw_mega_texture()
 
     glfw.swap_buffers(n_window.window)
 
@@ -91,16 +91,17 @@ def main():
         tmp_layers.append(tensor.numel())
 
     # Init net
-    n_net.init(10000, [100000,14000,100000,3040])
-    #n_net.init(tmp_layers[0], tmp_layers[1:])
+    # n_net.init(10000000, [100000000,1400000,1004000,3000000])
+    n_net.init(tmp_layers[0], tmp_layers[1:])
     # generate nodes grid
     n_net.generate_net()
     # update tree size and depth using grid size
-    n_tree.update_size()
+    n_tree.load_net_size()
     # calculate min zoom using grid size
     n_window.calculate_min_zoom(n_net)
+    n_tree.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom)
     # create textures
-    n_tree.create_textures(n_net,n_window.min_zoom, n_window.max_zoom)
+    n_tree.create_textures(n_net)
     print("texture created")
     # generate tree
     print("Generating tree")

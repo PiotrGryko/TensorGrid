@@ -37,10 +37,10 @@ class NWindow:
         min_zoom_y = h / content_height / 1.2
         self.min_zoom = min_zoom_x if min_zoom_x < min_zoom_y else min_zoom_y
         self.zoom_factor = self.min_zoom
-        self.zoom_step =  (self.max_zoom - self.min_zoom)/1000  #self.min_zoom/2
+        self.zoom_step =  (self.max_zoom - self.min_zoom)/4000  #self.min_zoom/2
         self.mouse_scroll_callback(self.window,1,1)
         print(w,h,content_width,content_height)
-        print("Min zoom calculated:", self.min_zoom, self.zoom_factor, self.zoom_step)
+        print("Min zoom calculated:", self.min_zoom, self.max_zoom, self.zoom_step)
 
     def create_window(self):
         # Initialize OpenGL and create a window

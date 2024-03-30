@@ -4,7 +4,7 @@ import pyglet
 from pyglet.gl import GL_TRIANGLES
 
 from app.draw.pyglet.helper import node_color, red_color
-from app.draw.pyglet.tree_bsp import BSPTree, BSPLeaf
+from app.draw.pyglet.tree_bsp_pyglet import BSPLeaf, BSPTree
 
 
 class PlaneLeaf(BSPLeaf):

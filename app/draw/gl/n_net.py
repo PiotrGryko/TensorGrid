@@ -1,4 +1,3 @@
-import io
 import math
 import random
 import time
@@ -7,8 +6,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt
-from matplotlib._tight_bbox import adjust_bbox
-from scipy.ndimage import gaussian_filter
 
 
 class Layer:
@@ -20,13 +17,6 @@ class Layer:
         self.size_y = 0
         self.is_square = self.size > 20
 
-        # self.is_square = self.size > 20
-        # if self.is_square:
-        #     self.size_x = math.ceil(math.sqrt(self.size))
-        #     self.size_y = self.size_x
-        # else:
-        #     self.size_y = self.size
-        #     self.size_x = 1
 
         self.max_batch_size = 50000000  # Numpy performance drops with large numbers
         self.sublayers = []
@@ -55,6 +45,8 @@ class Layer:
             self.sublayers.append(Layer(sub_size, self.column_offset + sub_colum_offset, self.row_offset))
             self.sublayers.append(
                 Layer(sub_size, self.column_offset + sub_colum_offset, self.row_offset + sub_row_offset))
+            for s in self.sublayers:
+                s.define_layer_size()
 
     def collect(self):
         result = []
@@ -82,16 +74,16 @@ class Layer:
 class NNet:
     def __init__(self, n_window):
         self.n_window = n_window
-        self.total_width = 0
-        self.total_height = 0
         self.layers = []
         self.grid_columns_count = 0
         self.grid_rows_count = 0
+        self.total_width = 0
+        self.total_height = 0
         self.grid = None
         self.first_row = None
         self.first_column = None
-        self.node_gap_x = 100 / self.n_window.width * 2.0
-        self.node_gap_y = 100 / self.n_window.width * 2.0
+        self.node_gap_x = 0.1 #100 / self.n_window.width * 2.0
+        self.node_gap_y = 0.1 #100 / self.n_window.width * 2.0
         self.default_value = -2
 
         self.cmap_options = ['Accent', 'Accent_r', 'Blues', 'Blues_r', 'BrBG', 'BrBG_r', 'BuGn', 'BuGn_r', 'BuPu',
@@ -142,7 +134,7 @@ class NNet:
         self.color_low = self.cmap(-1)
 
     def init(self, input_size, layers_sizes):
-        print(f"Init net net {input_size} {layers_sizes}")
+        print(f"Init net {input_size} {layers_sizes}")
         start_time = time.time()
         all_layers = [input_size] + layers_sizes
         for index, l in enumerate(all_layers):
@@ -151,7 +143,7 @@ class NNet:
             self.layers.append(grid_layer)
 
         max_row_count = max(l.size_y for l in self.layers)
-        gap_between_layers = 20 # 10 columns
+        gap_between_layers = 20  # 10 columns
         for index, grid_layer in enumerate(self.layers):
             column_offset = sum([l.size_x for l in self.layers[:index]])
             layer_offset = index * gap_between_layers
@@ -164,10 +156,11 @@ class NNet:
 
         self.grid_columns_count = sum([l.size_x for l in self.layers]) + gap_between_layers * len(self.layers)
         self.grid_rows_count = max([l.size_y for l in self.layers])
-        self.total_width = self.grid_columns_count * self.node_gap_x # + gap_between_layers * len(self.layers)
+        self.total_width = self.grid_columns_count * self.node_gap_x
         self.total_height = self.grid_rows_count * self.node_gap_y
         self.grid = np.full((self.grid_rows_count, self.grid_columns_count), self.default_value).astype(np.float32)
-        print("Net initialized", time.time() - start_time)
+        total_size = sum(all_layers)
+        print("Net initialized", time.time() - start_time, "total size: ", total_size, "node gaps: ", self.node_gap_x, self.node_gap_y)
         print("grid", self.grid.shape)
 
     def process_batch(self, sublayer, index, grid):
@@ -177,7 +170,8 @@ class NNet:
 
     def generate_net(self):
         print(f"generate net")
-        print(self.total_width, self.total_height)
+        print(f"Grid size, columns: {self.grid_columns_count} rows: {self.grid_rows_count}")
+        print("Size in Pixels", self.total_width, self.total_height)
         start_time = time.time()
 
         executor = ThreadPoolExecutor()
@@ -235,53 +229,6 @@ class NNet:
         plt.close()
         print("Plot generated", time.time() - start_time)
 
-    def get_texture(self, x1, y1, x2, y2, factor=1):
-        # print(f"NNet get texture ", factor)
-        start_time = time.time()
-
-        new_grid = self.get_subgrid(x1, y1, x2, y2)
-        grid_factor = factor * 10
-        new_grid = new_grid[::grid_factor, ::grid_factor]
-        fig, ax = plt.subplots()
-        ax.grid(False)
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.axis('off')
-
-        # Remove the top and right spines
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.get_xaxis().set_visible(False)
-        ax.get_yaxis().set_visible(False)
-
-        ax.imshow(new_grid, cmap=self.cmap, alpha=1, origin='lower', interpolation=self.interpolation)
-        # image_width, image_height = fig.canvas.get_width_height()
-        bbox = fig.get_tightbbox()
-        # bbox=bbox.padded(1)
-        adjust_bbox(fig, bbox)
-
-        # # Get the image data from the canvas
-        canvas = fig.canvas
-        buffer = io.BytesIO()
-        canvas.print_png(buffer)
-        image_data = buffer.getvalue()
-
-        #
-        image_width, image_height = fig.canvas.get_width_height()
-        # Open the image from bytes
-        image = Image.open(io.BytesIO(image_data))
-        # Convert the image to RGBA format
-        image_rgba = image.convert('RGBA')
-        # Get the raw pixel data as a numpy array
-        image_data = np.array(image_rgba)
-        # print(image_data.shape)
-        # # plt.savefig("gl/tiles/test2.png")
-        # print(image_data[100,100])
-        plt.close(fig)
-        print("Texture generated", time.time() - start_time, "width", image_width, "height", image_height, "factor",
-              grid_factor, "size", new_grid.size, "shape", new_grid.shape)
-        return image_data, image_width, image_height
-
     def get_texture2(self, x1, y1, x2, y2, factor=1):
         # print(f"NNet get texture ", factor)
         start_time = time.time()
@@ -289,12 +236,12 @@ class NNet:
         new_grid = self.get_subgrid(x1, y1, x2, y2)
         grid_factor = factor
         new_grid = new_grid[::grid_factor, ::grid_factor]
-        new_grid = self.scale_down_and_average(new_grid)
+        # new_grid = self.scale_down_and_average(new_grid)
+        #
+        # image_width = new_grid.shape[1]
+        # image_height = new_grid.shape[0]
 
-        image_width = new_grid.shape[1]
-        image_height = new_grid.shape[0]
-
-        # image_height, image_width = self.scale_down_dimensions(new_grid.shape)
+        image_height, image_width = self.scale_down_dimensions(new_grid.shape)
         # Normalize the grid data to [0, 255] range
         cmap_rbga = self.cmap(new_grid)
         normalized_data = (cmap_rbga * 255).astype(np.uint8)
@@ -319,6 +266,7 @@ class NNet:
         row_min = int(y1 / node_gap_y)
         row_max = math.ceil(y2 / node_gap_y)
         subgrid = self.grid[row_min:row_max, col_min:col_max]
+
         return subgrid
 
     def get_positions_grid(self, x1, y1, x2, y2):

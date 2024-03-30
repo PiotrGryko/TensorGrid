@@ -3,7 +3,7 @@ import time
 import numpy as np
 
 
-class BSPLeaf():
+class BSPLeaf:
     def __init__(self, x, y, w, h, level):
         self.x = x
         self.y = y
@@ -11,8 +11,9 @@ class BSPLeaf():
         self.h = h
         self.level = level
         self.children = []
-        self.key_x = 0 if self.x ==0 else int(self.x / self.w)
-        self.key_y = 0 if self.y ==0 else int(self.y / self.h)
+        self.key_x = 0 if self.x == 0 else int(self.x / self.w)
+        self.key_y = 0 if self.y == 0 else int(self.y / self.h)
+        self.generated = False
 
     def is_visible(self, viewport):
         x, y, w, h, zoom = viewport
@@ -32,7 +33,10 @@ class BSPLeaf():
         # partially visible
         horizontal = (px1 >= wx1 and px1 <= wx2) or (px2 >= wx1 and px2 <= wx2)
         vertical = (py1 >= wy1 and py1 <= wy2) or (py2 >= wy1 and py2 <= wy2)
-        return (horizontal or viewport_inside_x) and (vertical or viewport_inside_y), leaf_inside_x and leaf_inside_y
+        is_visible = (horizontal or viewport_inside_x) and (vertical or viewport_inside_y)
+        is_fully_visible = leaf_inside_x and leaf_inside_y
+        contains_viewport = viewport_inside_x and viewport_inside_y
+        return is_visible, is_fully_visible, contains_viewport
 
     def contains_point(self, x, y):
         px1, py1, px2, py2 = self.x, self.y, self.x + self.w, self.y + self.h
@@ -58,59 +62,72 @@ class BSPLeaf():
         return BSPLeaf(x, y, w, h, level)
 
     # split in 4
-    def generate(self, depth,step=0):
+    def generate(self, depth, step=0):
         if step < depth:
-            step+=1
+            step += 1
             # 300.0 600.0 | 300.0 600.0
-            self.children = [
-                self.create_child(
-                    self.x,
-                    self.y,
-                    self.w / 2,
-                    self.h / 2,
-                    step
-                ),
-                self.create_child(
-                    self.x,
-                    self.y + self.h / 2,
-                    self.w / 2,
-                    self.h / 2,
-                    step
-                ),
-                self.create_child(
-                    self.x + self.w / 2,
-                    self.y,
-                    self.w / 2,
-                    self.h / 2,
-                    step
-                ),
-                self.create_child(
-                    self.x + self.w / 2,
-                    self.y + self.h / 2,
-                    self.w / 2,
-                    self.h / 2,
-                    step
-                )
-            ]
+            self.generate_leafs()
             for c in self.children:
-                c.generate(depth,step)
+                c.generate(depth, step)
 
-    def traverse(self, viewport, visible, not_visible):
-        is_visible, is_fully_visible = self.is_visible(viewport)
+    def generate_leafs(self):
+        self.generated = True
+        print("generated leafs", self)
+        self.children = [
+            self.create_child(
+                self.x,
+                self.y,
+                self.w / 2,
+                self.h / 2,
+                self.level+1
+            ),
+            self.create_child(
+                self.x,
+                self.y + self.h / 2,
+                self.w / 2,
+                self.h / 2,
+                self.level+1
+            ),
+            self.create_child(
+                self.x + self.w / 2,
+                self.y,
+                self.w / 2,
+                self.h / 2,
+                self.level+1
+            ),
+            self.create_child(
+                self.x + self.w / 2,
+                self.y + self.h / 2,
+                self.w / 2,
+                self.h / 2,
+                self.level+1
+            )
+        ]
 
-        # x, y, w, h, zoom = viewport
-
-        if is_fully_visible:
-            visible.append(self)
-            return True
+    def traverse(self, viewport, visible, not_visible, max_depth=None):
+        is_visible, is_fully_visible, contains_viewport = self.is_visible(viewport)
+        # Not visible discard
         if not is_visible:
             not_visible.append(self)
             return False
-        else:
-            if len(self.children) == 0:
-                visible.append(self)
+        # Is fully visible
+        if is_fully_visible:
+            visible.append(self)
+            return True
+        if contains_viewport:
+            max_depth = self.level + 4
+        if max_depth is None:
+            max_depth = self.level + 4
+        if self.level == max_depth:
+            visible.append(self)
+            return True
+        if not self.generated:
+            self.generate_leafs()
+        if len(self.children) == 0:
+            visible.append(self)
+            return True
         for c in self.children:
-            c.traverse(viewport, visible, not_visible)
+            c.traverse(viewport, visible, not_visible, max_depth)
         return True
 
     def count(self):
@@ -171,11 +188,10 @@ class BSPTree:
         self.leaf.w = w
         self.leaf.h = h
 
-
     def generate(self):
         print("generating tree....")
         start_time = time.time()
-        self.leaf.generate(self.depth)
+        # self.leaf.generate(self.depth)
         print("Tree generated", time.time() - start_time)
 
     def traverse(self, viewport, visible, not_visible):
@@ -212,6 +228,6 @@ class BSPTree:
         self.edge_leaf_width = edge_leaf.w
         self.edge_leaf_height = edge_leaf.h
         self.grid_size = int(self.width / edge_leaf.w)
-        self.edge_leafs_grid = np.empty((self.grid_size,self.grid_size), dtype=object)
+        self.edge_leafs_grid = np.empty((self.grid_size, self.grid_size), dtype=object)
         for leaf in edge_leafs:
             self.edge_leafs_grid[leaf.key_x][leaf.key_y] = leaf
