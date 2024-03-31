@@ -5,6 +5,7 @@ import glfw
 from OpenGL.GL import *
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
+from app.draw.gl.n_lod import NLvlOfDetails
 from app.draw.gl.n_net import NNet
 from app.draw.gl.n_shader import NShader
 from app.draw.gl.n_tree import NTree
@@ -17,16 +18,16 @@ n_window = NWindow()
 n_shader = NShader()
 n_texture_shader = NShader()
 n_net = NNet(n_window)
-
+n_lod = NLvlOfDetails()
 n_tree = NTree(0, n_net)
+
+DEBUG = False
 
 def render():
     global frame_count, start_time
-    # Clear the screen
-    # gl.glClearColor(0.0, 0.0, 1.0, 1.0)
 
-    r,g,b,a = n_net.color_low
-    gl.glClearColor(r,g,b,a)
+    r, g, b, a = n_net.color_low
+    gl.glClearColor(r, g, b, a)
     gl.glClear(gl.GL_COLOR_BUFFER_BIT)
     gl.glClear(gl.GL_DEPTH_BUFFER_BIT)
 
@@ -39,37 +40,39 @@ def render():
         fps_text = f"FPS: {fps:.2f}"
         frame_count = 0
         start_time = time.time()
-        #print(fps_text)
+        # print(fps_text)
+    n_lod.get_current_lod()
 
-
-
-
-    # Use the shader program
-    n_shader.use()
-    n_shader.update_projection(n_window.get_projection_matrix())
-    n_tree.draw_vertices()
-    #n_tree.draw_leafs_backgrounds()
-    #n_tree.draw_mega_leaf()
-
-    n_texture_shader.use()
-    n_texture_shader.update_projection(n_window.get_projection_matrix())
-    n_tree.draw_textures(n_texture_shader)
-    #n_tree.draw_leafs_textures()
-    #n_tree.draw_mega_texture()
+    if DEBUG:
+        # Use the shader program
+        n_shader.use()
+        n_shader.update_projection(n_window.get_projection_matrix())
+        n_lod.draw_debug_tree(n_tree)
+    else:
+        # Use the shader program
+        n_shader.use()
+        n_shader.update_projection(n_window.get_projection_matrix())
+        n_lod.draw_lod_vertices(n_net, n_tree)
+        # Use the texture shader program
+        n_texture_shader.use()
+        n_texture_shader.update_projection(n_window.get_projection_matrix())
+        n_lod.draw_lod_textures(n_net, n_tree, n_texture_shader)
 
     glfw.swap_buffers(n_window.window)
 
 
 def on_viewport_updated():
-    n_tree.update_viewport(n_window.viewport_to_world_cords())
+    viewport = n_window.viewport_to_world_cords()
+    n_tree.update_viewport(viewport)
+    n_lod.update_viewport(viewport)
 
 
 def main():
     n_window.create_window()
     n_window.set_render_func(render)
     n_window.set_viewport_updated_func(on_viewport_updated)
-
     glEnable(GL_DEPTH_TEST)
+    glDepthMask(GL_FALSE)
     gl.glEnable(gl.GL_BLEND)
     gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
     version = glGetString(GL_VERSION)
@@ -79,7 +82,7 @@ def main():
 
     model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
-    #model_name = "your-llm-model-name"  # Replace with the name or path of your LLM model
+    # model_name = "your-llm-model-name"  # Replace with the name or path of your LLM model
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
 
@@ -91,8 +94,8 @@ def main():
         tmp_layers.append(tensor.numel())
 
     # Init net
-    # n_net.init(10000000, [100000000,1400000,1004000,3000000])
-    n_net.init(tmp_layers[0], tmp_layers[1:])
+    n_net.init(10000000, [10000000, 1400000, 1004000, 3000000])
+    # n_net.init(tmp_layers[0], tmp_layers[1:])
     # generate nodes grid
     n_net.generate_net()
     # update tree size and depth using grid size
@@ -100,9 +103,9 @@ def main():
     # calculate min zoom using grid size
     n_window.calculate_min_zoom(n_net)
     n_tree.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom)
-    # create textures
-    n_tree.create_textures(n_net)
-    print("texture created")
+    n_lod.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom, n_tree.depth)
+    # create level of details
+    n_lod.generate_levels(n_net, n_tree.depth)
     # generate tree
     print("Generating tree")
     n_tree.generate()

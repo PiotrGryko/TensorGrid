@@ -19,8 +19,23 @@ class NTexture:
         self.material_one = Material().from_image_data(img_data, img_width, img_height)
         self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0))
 
+    def create_second_texture_from_data(self, x1, y1, x2, y2, img_data, img_width, img_height):
+        self.material_two = Material().from_image_data(img_data, img_width, img_height)
+        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0))
+
+    def add_texture_from_data(self, img_data, img_width, img_height):
+        self.material_one = Material().from_image_data(img_data, img_width, img_height)
+
     def add_second_texture_from_data(self, img_data, img_width, img_height):
         self.material_two = Material().from_image_data(img_data, img_width, img_height)
+
+    def add_first_texture_from_object(self, material):
+        m = material
+        self.material_one = Material().from_image_data(m.img_data, m.image_width, m.image_height)
+
+    def add_second_texture_from_object(self, material):
+        m = material
+        self.material_two = Material().from_image_data(m.img_data, m.image_width, m.image_height)
 
     def draw(self):
         if not self.material_one:
@@ -111,6 +126,9 @@ class Triangle:
 class Material:
     def __init__(self):
         self.texture = None
+        self.img_data = None
+        self.image_width = None
+        self.image_height = None
 
     def from_file(self, filepath):
 
@@ -149,6 +167,9 @@ class Material:
         #     print(f"Error generating mipmap texture: {error}")
 
     def from_image_data(self, img_data, image_width, image_height):
+        self.img_data = img_data
+        self.image_width = image_width
+        self.image_height = image_height
         self.texture = gl.glGenTextures(1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)

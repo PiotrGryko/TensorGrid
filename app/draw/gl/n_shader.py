@@ -29,17 +29,14 @@ fragment_shader_source = """
 #version 330 core
 
 in vec3 color;
-in vec2 frag_tex_coord;
 out vec4 frag_color;
 
-uniform sampler2D tex1;
-uniform sampler2D tex2;
 uniform float fading_factor = 1.0f;
 
 
 void main()
 {
-    frag_color = vec4(color, 1.0);
+    frag_color = vec4(color, fading_factor);
 }
 """
 
@@ -74,28 +71,6 @@ void main()
 }
 """
 
-
-
-# Fragment shader source code for drawing textures
-texture_fragment_shader_source_two = """
-#version 330 core
-
-in vec3 color;
-in vec2 frag_tex_coord;
-out vec4 frag_color;
-
-uniform sampler2D tex1;
-uniform sampler2D tex2;
-uniform float fading_factor = 1.0f;
-
-
-void main()
-{
-    vec4 tex_color1 = texture(tex1, frag_tex_coord);
-    tex_color1.a *= 1 - fading_factor;
-    frag_color = tex_color1;
-}
-"""
 
 
 # geometry_shader_source = """

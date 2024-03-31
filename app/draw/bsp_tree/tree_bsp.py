@@ -154,7 +154,7 @@ class BSPLeaf:
             visible.append(self)
             return True
         if not self.generated:
-            print("Leafs loaded",self)
+            #print("Leafs loaded",self)
             self.generate_leafs()
         if len(self.children) == 0:
             visible.append(self)

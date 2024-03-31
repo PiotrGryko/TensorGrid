@@ -33,14 +33,10 @@ class NTreeLeaf(BSPLeaf):
     def create_background_view(self):
         self.n_vertex.create_plane(self.x1, self.y1, self.x2, self.y2, self.color)
 
-    def create_texture(self, n_net):
+    def create_texture(self, n_net, factor=1):
         self.n_texture = NTexture()
-        factor = 1 #max([1, 20 - self.level])
-        child_factor = max([1, factor - 1])
         img_data, img_width, img_height = n_net.get_texture2(self.x1, self.y1, self.x2, self.y2, factor)
         self.n_texture.create_from_data(self.x1, self.y1, self.x2, self.y2, img_data, img_width, img_height)
-        # img_data2, img_width2, img_height2 = n_net.get_texture2(self.x1, self.y1, self.x2, self.y2, 20)
-        # self.n_texture.add_second_texture_from_data(img_data, img_width, img_height)
 
     def draw_vertices(self):
         self.n_vertex.draw_nodes()
@@ -54,6 +50,9 @@ class NTreeLeaf(BSPLeaf):
 
     def create_child(self, x, y, w, h, level):
         return NTreeLeaf(x, y, w, h, level)
+
+    def equals(self, x1, y1, x2, y2, level):
+        return x1 == self.x1 and y1 == self.y1 and x2 == self.x2 and y2 == self.y2 and level == self.level
 
 
 class NTree(BSPTree):
@@ -73,7 +72,6 @@ class NTree(BSPTree):
 
         self.texture = None
         self.mega_leaf = None
-        self.mega_visible_leafs = None
 
     def set_size(self, w, h):
         super().set_size(w, h)
@@ -104,110 +102,20 @@ class NTree(BSPTree):
         if visible != self.visible_leafs:
             print("Visible count: ", len(visible))
             self.visible_leafs = visible
+            self.build_mega_leaf()
 
-    def create_textures(self, n_net):
-        print("Greate zoom textures")
-        start_time = time.time()
-
-        materials = []
-        if self.depth > 0:
-            for i in range(self.depth, 0, -1):
-                if i == 1:
-                    factor = 1
-                else:
-                    factor = i*3
-                factor = i * 10
-                img_data, img_width, img_height = n_net.get_texture2(0, 0, self.width, self.height, factor)
-                materials.append((img_data, img_width, img_height))
-
-        for index, m in enumerate(materials):
-            texture = NTexture()
-            img_data, img_width, img_height = m
-            texture.create_from_data(0, 0, self.width, self.height, img_data, img_width, img_height)
-
-            if index < len(materials) - 1:
-                next_material = materials[index + 1]
-                img_data, img_width, img_height = next_material
-                texture.add_second_texture_from_data(img_data, img_width, img_height)
-            self.textures.append(texture)
-        print("Textures generated", time.time() - start_time, "zoom levels", len(self.textures))
-
-    def draw_textures(self, n_shader):
-        x, y, w, h, zoom = self.viewport
-        zoom_threshold = self.texture_zoom_threshold + 0.1
-        texture_index = 0
-        if zoom > zoom_threshold:
-            # print("Zoom is larger than max zoom,_treshold returning textures draw")
+    def build_mega_leaf(self):
+        if len(self.visible_leafs) == 0:
+            self.mega_leaf = None
             return
 
-        if zoom > self.texture_zoom_threshold and zoom < zoom_threshold:
-            max_delta = zoom_threshold - self.texture_zoom_threshold
-            delta = zoom - self.texture_zoom_threshold
-            factor = delta / max_delta
-            factor = factor
-            n_shader.update_fading_factor(factor)
-            texture_index = len(self.textures) - 1
+        x1 = min([v.x1 for v in self.visible_leafs])
+        x2 = max([v.x2 for v in self.visible_leafs])
+        y1 = min([v.y1 for v in self.visible_leafs])
+        y2 = max([v.y2 for v in self.visible_leafs])
+        level = max([v.level for v in self.visible_leafs])
 
-        elif zoom < self.texture_zoom_threshold:
-            zoom_norm = zoom - self.min_possible_zoom
-            texture_index = int((zoom_norm) / self.texture_zoom_step)
-
-            cur_zoom_step = texture_index * self.texture_zoom_step
-            next_zoom_step = (texture_index + 1) * self.texture_zoom_step
-            step_delta = (zoom_norm - cur_zoom_step) / (next_zoom_step - cur_zoom_step)
-            n_shader.update_fading_factor(step_delta)
-
-        # n_shader.set_tex2_enabled(True)
-        n_shader.set_tex2_enabled(zoom < self.texture_zoom_threshold)
-        # print("Drawing textures", texture_index, zoom, self.texture_zoom_threshold)
-        if len(self.textures) > 0:
-            self.textures[texture_index].draw()
-
-    def draw_leafs_textures(self):
-        # self.n_vertex.draw_texture()
-        x, y, w, h, zoom = self.viewport
-
-        if zoom < self.texture_zoom_threshold:
-            # print("Zoom is larger than max zoom, returning tree draw")
-            return
-        for l in self.visible_leafs:
-            if not l.texture_attached:
-                l.texture_attached = True
-                l.create_texture(self.n_net)
-            l.draw_texture()
-
-    def draw_vertices(self):
-        # self.n_vertex.draw_texture()
-        x, y, w, h, zoom = self.viewport
-        if zoom < self.texture_zoom_threshold:
-            # print("Zoom is larger than max zoom, returning tree draw")
-            return
-        for l in self.visible_leafs:
-            #
-            if not l.nodes_attached:
-                l.nodes_attached = True
-                l.create_nodes_view(self.n_net)
-            l.draw_vertices()
-
-    def draw_leafs_backgrounds(self):
-        for l in self.visible_leafs:
-            if not l.background_attached:
-                l.background_attached = True
-                l.create_background_view()
-            l.draw_leaf_background()
-
-    def draw_mega_texture(self):
-
-        if len(self.visible_leafs) > 0 and self.visible_leafs != self.mega_visible_leafs:
-            self.mega_visible_leafs = self.visible_leafs
-            x1 = min([v.x1 for v in self.visible_leafs])
-            x2 = max([v.x2 for v in self.visible_leafs])
-            y1 = min([v.y1 for v in self.visible_leafs])
-            y2 = max([v.y2 for v in self.visible_leafs])
-            level = max([v.level for v in self.visible_leafs])
+        if self.mega_leaf is None:
             self.mega_leaf = NTreeLeaf(x1, y1, x2 - x1, y2 - y1, level)
-            # ml.color = (0.5, 0.5, 0.5)
-            self.mega_leaf.texture_attached = True
-            self.mega_leaf.create_texture(self.n_net)
-        if self.mega_leaf is not None:
-            self.mega_leaf.draw_texture()
+        elif not self.mega_leaf.equals(x1, y1, x2, y2, level):
+            self.mega_leaf = NTreeLeaf(x1, y1, x2 - x1, y2 - y1, level)
