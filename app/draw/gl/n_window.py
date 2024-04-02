@@ -29,6 +29,7 @@ class NWindow:
         self.projection = Projection()
         self.render_func = None
         self.viewport_updated_func = None
+        self.zoom_percent = 0
 
     def calculate_min_zoom(self, n_net):
         content_width, content_height = n_net.total_width, n_net.total_height
@@ -119,9 +120,10 @@ class NWindow:
 
     def mouse_scroll_callback(self, window, x_offset, y_offset):
 
+
         delta = - y_offset * self.zoom_step
         self.zoom_factor += delta
-
+        #print("Zoom offset ",y_offset, self.zoom_factor)
         if self.zoom_factor <= self.min_zoom:
             self.zoom_factor = self.min_zoom
 
@@ -132,7 +134,10 @@ class NWindow:
         self.on_viewport_updated()
 
         zoom_percent = self.zoom_factor / self.max_zoom
-        #print("zoom: ", "{:.0%}".format(zoom_percent))
+        formatted = "{:.0%}".format(zoom_percent)
+        if self.zoom_percent != formatted:
+            self.zoom_percent = formatted
+            print("zoom: ", formatted)
 
     def mouse_button_callback(self, window, button, action, mods):
         if button == glfw.MOUSE_BUTTON_RIGHT:

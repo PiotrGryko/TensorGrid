@@ -112,7 +112,7 @@ class Material:
         self.texture = glGenTextures(1)
         glBindTexture(GL_TEXTURE_2D, self.texture)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         image = pg.image.load(filepath).convert_alpha()
         image_width, image_height = image.get_rect().size
         img_data = pg.image.tostring(image, 'RGBA')

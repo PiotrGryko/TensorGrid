@@ -10,9 +10,11 @@ layout(location = 0) in vec2 position;
 layout(location = 1) in vec3 instance_color;
 layout(location = 2) in vec2 instance_position;
 layout(location = 3) in vec2 tex_coord;
+layout(location = 4) in vec2 tex_coord2;
 
 out vec3 color;
 out vec2 frag_tex_coord;
+out vec2 frag_tex_coord2;
 uniform mat4 projection_matrix;
 
 
@@ -21,6 +23,7 @@ void main()
     gl_Position = projection_matrix * vec4(position + instance_position, 0.0, 1.0);
     color = instance_color;
     frag_tex_coord = tex_coord;
+    frag_tex_coord2 = tex_coord2;
 }
 """
 
@@ -40,37 +43,126 @@ void main()
 }
 """
 
+# # Fragment shader source code for drawing textures
+# texture_fragment_shader_source = """
+# #version 330 core
+#
+# in vec3 color;
+# in vec2 frag_tex_coord;
+# in vec2 frag_tex_coord2;
+# out vec4 frag_color;
+#
+# uniform sampler2D tex1;
+# uniform sampler2D tex2;
+#
+# uniform float fading_factor = 0.0f;
+# uniform bool tex2_enabled = false;
+#
+#
+# void main()
+# {
+#     vec4 tex_color1 = texture(tex1, frag_tex_coord);
+#     vec4 tex_color2 = texture(tex2, frag_tex_coord2);
+#     if(tex2_enabled)
+#     {
+#         frag_color = mix(tex_color1, tex_color2, fading_factor);
+#     }
+#     else
+#     {
+#         frag_color = tex_color1;
+#     }
+# }
+# """
+#
+#
+# # Fragment shader source code for drawing textures
+# texture_fragment_shader_source_test = """
+# #version 330 core
+#
+# in vec3 color;
+# in vec2 frag_tex_coord;
+# in vec2 frag_tex_coord2;
+# out vec4 frag_color;
+#
+# uniform sampler2D tex1;
+# uniform sampler2D tex2;
+#
+# uniform float fading_factor = 1.0f;
+# uniform float alpha_factor = 1.0f;
+# uniform bool tex2_enabled = true;
+#
+#
+# void main()
+# {
+#     vec4 tex_color1 = texture(tex1, frag_tex_coord);
+#     vec4 tex_color2 = texture(tex2, frag_tex_coord2);
+#     if(tex2_enabled)
+#     {
+#
+#         frag_color = mix(tex_color1, tex_color2, fading_factor);
+#         frag_color = tex_color2;
+#
+#     }
+#     else
+#     {
+#         frag_color = mix(tex_color2, tex_color1, fading_factor);
+#         frag_color = tex_color1;
+#     }
+#     // frag_color.a = alpha_factor;
+# }
+# """
+
+
 # Fragment shader source code for drawing textures
-texture_fragment_shader_source = """
+texture_fragment_shader_material_one = """
 #version 330 core
 
 in vec3 color;
 in vec2 frag_tex_coord;
 out vec4 frag_color;
 
-uniform sampler2D tex1;
+uniform sampler2D tex;
 uniform sampler2D tex2;
 
-uniform float fading_factor = 0.0f;
+
+uniform float fading_factor = 1.0f;
+uniform float alpha_factor = 1.0f;
 uniform bool tex2_enabled = true;
 
 
 void main()
 {
-    vec4 tex_color1 = texture(tex1, frag_tex_coord);
-    vec4 tex_color2 = texture(tex2, frag_tex_coord);
-    if(tex2_enabled)
-    {
-        frag_color = mix(tex_color1, tex_color2, fading_factor);
-    }
-    else
-    {
-        tex_color1.a *= 1 - fading_factor;
-        frag_color = tex_color1;
-    }
+    vec4 tex_color = texture(tex, frag_tex_coord);
+    tex_color.a = fading_factor;
+    frag_color = tex_color;
 }
 """
 
+
+# Fragment shader source code for drawing textures
+texture_fragment_shader_material_two = """
+#version 330 core
+
+in vec3 color;
+in vec2 frag_tex_coord2;
+out vec4 frag_color;
+
+uniform sampler2D tex2;
+uniform sampler2D tex;
+
+
+uniform float fading_factor = 1.0f;
+uniform float alpha_factor = 1.0f;
+uniform bool tex2_enabled = true;
+
+
+void main()
+{
+    vec4 tex_color2 = texture(tex2, frag_tex_coord2);
+    tex_color2.a = fading_factor;
+    frag_color = tex_color2;
+}
+"""
 
 
 # geometry_shader_source = """
@@ -110,11 +202,15 @@ class NShader:
 
         text_uniform = gl.glGetUniformLocation(self.shader_program, "tex1")
         gl.glUniform1i(text_uniform, 0)
-        text_uniform = gl.glGetUniformLocation(self.shader_program, "tex2")
-        gl.glUniform1i(text_uniform, 1)
+        text_uniform1 = gl.glGetUniformLocation(self.shader_program, "tex2")
+        gl.glUniform1i(text_uniform1, 1)
 
     def update_fading_factor(self, factor):
         fading_factor = gl.glGetUniformLocation(self.shader_program, "fading_factor")
+        gl.glUniform1f(fading_factor, factor)
+
+    def update_alpha_factor(self, factor):
+        fading_factor = gl.glGetUniformLocation(self.shader_program, "alpha_factor")
         gl.glUniform1f(fading_factor, factor)
 
     def set_tex2_enabled(self, enabled):
@@ -124,8 +220,14 @@ class NShader:
     def compile_vertices_program(self):
         self.compile(vertex_shader_source, fragment_shader_source)
 
-    def compile_textures_program(self):
-        self.compile(vertex_shader_source, texture_fragment_shader_source)
+    # def compile_textures_program(self):
+    #     self.compile(vertex_shader_source, texture_fragment_shader_source_test)
+
+    def compile_textures_material_one_program(self):
+        self.compile(vertex_shader_source, texture_fragment_shader_material_one)
+
+    def compile_textures_material_two_program(self):
+        self.compile(vertex_shader_source, texture_fragment_shader_material_two)
 
     def compile(self, vertex_shader_source, fragment_shader_source):
         self.shader_version = gl.glGetString(gl.GL_SHADING_LANGUAGE_VERSION)

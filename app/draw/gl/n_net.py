@@ -82,8 +82,8 @@ class NNet:
         self.grid = None
         self.first_row = None
         self.first_column = None
-        self.node_gap_x = 0.1 #100 / self.n_window.width * 2.0
-        self.node_gap_y = 0.1 #100 / self.n_window.width * 2.0
+        self.node_gap_x = 0.2 #100 / self.n_window.width * 2.0
+        self.node_gap_y = 0.2 #100 / self.n_window.width * 2.0
         self.default_value = -2
 
         self.cmap_options = ['Accent', 'Accent_r', 'Blues', 'Blues_r', 'BrBG', 'BrBG_r', 'BuGn', 'BuGn_r', 'BuPu',
@@ -237,15 +237,13 @@ class NNet:
         grid_factor = factor
         new_grid = new_grid[::grid_factor, ::grid_factor]
         # new_grid = self.scale_down_and_average(new_grid)
-        #
-        # image_width = new_grid.shape[1]
-        # image_height = new_grid.shape[0]
 
-        image_height, image_width = self.scale_down_dimensions(new_grid.shape)
+        image_height, image_width =  self.scale_down_dimensions(new_grid.shape)
         # Normalize the grid data to [0, 255] range
         cmap_rbga = self.cmap(new_grid)
         normalized_data = (cmap_rbga * 255).astype(np.uint8)
         image = Image.fromarray(normalized_data)
+
         image_rgba = image.convert('RGBA').resize((image_width, image_height))
         image_rgba_flipped = image_rgba.transpose(Image.FLIP_TOP_BOTTOM)
 
@@ -293,7 +291,7 @@ class NNet:
 
         return positions, color_values
 
-    def scale_down_dimensions(self, shape, max_size=(8096, 8096)):
+    def scale_down_dimensions(self, shape, max_size=(16096, 16096)):
         original_width, original_height = shape
 
         # # Scale down the dimensions while preserving the aspect ratio

@@ -15,34 +15,27 @@ class NTexture:
         self.material_one = Material().from_file(filename)
         self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0))
 
-    def create_from_data(self, x1, y1, x2, y2, img_data, img_width, img_height):
-        self.material_one = Material().from_image_data(img_data, img_width, img_height)
-        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0))
+    def create_from_data(self, x1, y1, x2, y2, img_data, img_width, img_height, material_id=1):
+        if material_id == 1:
+            self.material_one = Material().from_image_data(img_data, img_width, img_height, material_id)
+        elif material_id == 2:
+            self.material_two = Material().from_image_data(img_data, img_width, img_height, material_id)
+        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0), material_id=material_id)
 
-    def create_second_texture_from_data(self, x1, y1, x2, y2, img_data, img_width, img_height):
-        self.material_two = Material().from_image_data(img_data, img_width, img_height)
-        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0))
-
-    def add_texture_from_data(self, img_data, img_width, img_height):
-        self.material_one = Material().from_image_data(img_data, img_width, img_height)
-
-    def add_second_texture_from_data(self, img_data, img_width, img_height):
-        self.material_two = Material().from_image_data(img_data, img_width, img_height)
-
-    def add_first_texture_from_object(self, material):
+    def add_texture_from_object(self, material, material_id=1):
         m = material
-        self.material_one = Material().from_image_data(m.img_data, m.image_width, m.image_height)
-
-    def add_second_texture_from_object(self, material):
-        m = material
-        self.material_two = Material().from_image_data(m.img_data, m.image_width, m.image_height)
+        if material_id == 1:
+            self.material_one = Material().from_image_data(m.img_data, m.image_width, m.image_height, material_id)
+        elif material_id == 2:
+            self.material_two = Material().from_image_data(m.img_data, m.image_width, m.image_height, material_id)
 
     def draw(self):
-        if not self.material_one:
+        if self.material_one is None and self.material_two is None:
             return
-        self.material_one.use(gl.GL_TEXTURE0)
-        if self.material_two:
-            self.material_two.use(gl.GL_TEXTURE1)
+        if self.material_one:
+            self.material_one.use_texture0()
+        elif self.material_two:
+            self.material_two.use_texture1()
 
         gl.glBindVertexArray(self.triangle.vao)
         # gl.glDrawArrays(gl.GL_TRIANGLES, 0, len(self.triangle.indices))
@@ -50,7 +43,7 @@ class NTexture:
 
 
 class Triangle:
-    def __init__(self, x1, y1, x2, y2, color=(1.0, 0.0, 0.0)):
+    def __init__(self, x1, y1, x2, y2, color=(1.0, 0.0, 0.0), material_id= 1):
         # x1, y1 = -0.5, -0.5
         # x2, y2 = 0.5, 0.5
 
@@ -110,8 +103,12 @@ class Triangle:
 
         # # Bind the texture
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.tex_vbo)
-        gl.glEnableVertexAttribArray(3)
-        gl.glVertexAttribPointer(3, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
+        if material_id == 1:
+            gl.glEnableVertexAttribArray(3)
+            gl.glVertexAttribPointer(3, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
+        elif material_id == 2:
+            gl.glEnableVertexAttribArray(4)
+            gl.glVertexAttribPointer(4, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
 
         # Create and bind the element buffer object (EBO)
         ebo = gl.glGenBuffers(1)
@@ -139,7 +136,7 @@ class Material:
 
         image_width, image_height = image.width, image.height
         print(image, image_width, image_height)
-        return self.from_image_data(img_data, image_width, image_height)
+        return self.from_image_data(img_data, image_width, image_height, 1)
 
         # self.texture = gl.glGenTextures(1)
         # gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
@@ -166,11 +163,17 @@ class Material:
         # if error != gl.GL_NO_ERROR:
         #     print(f"Error generating mipmap texture: {error}")
 
-    def from_image_data(self, img_data, image_width, image_height):
+    def from_image_data(self, img_data, image_width, image_height, material_id):
         self.img_data = img_data
         self.image_width = image_width
         self.image_height = image_height
         self.texture = gl.glGenTextures(1)
+        if material_id == 1:
+            print("from imagedata ",material_id)
+            gl.glActiveTexture(gl.GL_TEXTURE0)
+        elif material_id == 2:
+            print("from imagedata ", material_id)
+            gl.glActiveTexture(gl.GL_TEXTURE1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
@@ -188,8 +191,14 @@ class Material:
             print(f"Error generating mipmap texture: {error}")
         return self
 
-    def use(self, tex_index=gl.GL_TEXTURE0):
-        gl.glActiveTexture(tex_index)
+    def use_texture0(self):
+        #print("use texture 0")
+        gl.glActiveTexture(gl.GL_TEXTURE0)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
+
+    def use_texture1(self):
+        #print("use texture 1")
+        gl.glActiveTexture(gl.GL_TEXTURE1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
     def destroy(self):

@@ -1,25 +1,25 @@
 import random
-import time
 
 import numpy as np
 
+from app.draw.bsp_tree.tree_bsp import BSPLeaf, BSPTree
 from app.draw.gl.n_texture import NTexture
 from app.draw.gl.n_vertex import NVertex
-from app.draw.bsp_tree.tree_bsp import BSPLeaf, BSPTree
 
 
 class NTreeLeaf(BSPLeaf):
     def __init__(self, x, y, w, h, level):
         super().__init__(x, y, w, h, level)
         self.color = (random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1))
+        self.w = w
+        self.h = h
         self.x1, self.y1 = x, y
         self.x2, self.y2 = x + w, y + h
         self.background_attached = False
         self.nodes_attached = False
-        self.texture_attached = False
         self.n_vertex = NVertex()
         self.nodes = []
-        self.n_texture = None
+        self.material_to_texture_map = {}
 
     def create_nodes_view(self, n_net):
         positions, colors = n_net.get_positions_grid(self.x1, self.y1, self.x2, self.y2)
@@ -33,20 +33,25 @@ class NTreeLeaf(BSPLeaf):
     def create_background_view(self):
         self.n_vertex.create_plane(self.x1, self.y1, self.x2, self.y2, self.color)
 
-    def create_texture(self, n_net, factor=1):
-        self.n_texture = NTexture()
+    def create_texture(self, n_net, material_id=1, factor=1):
         img_data, img_width, img_height = n_net.get_texture2(self.x1, self.y1, self.x2, self.y2, factor)
-        self.n_texture.create_from_data(self.x1, self.y1, self.x2, self.y2, img_data, img_width, img_height)
+        tex = NTexture()
+        tex.create_from_data(self.x1, self.y1, self.x2, self.y2, img_data, img_width,
+                             img_height,
+                             material_id=material_id)
+        self.material_to_texture_map[material_id] = tex
+
+    def draw_texture(self, n_net, material_id, factor):
+        if material_id not in self.material_to_texture_map:
+            self.create_texture(n_net, material_id, factor)
+        if material_id in self.material_to_texture_map:
+            self.material_to_texture_map[material_id].draw()
 
     def draw_vertices(self):
         self.n_vertex.draw_nodes()
 
     def draw_leaf_background(self):
         self.n_vertex.draw_plane()
-
-    def draw_texture(self):
-        if self.n_texture:
-            self.n_texture.draw()
 
     def create_child(self, x, y, w, h, level):
         return NTreeLeaf(x, y, w, h, level)
@@ -58,19 +63,13 @@ class NTreeLeaf(BSPLeaf):
 class NTree(BSPTree):
     def __init__(self, depth, n_net):
         super().__init__(0, 0, depth)
-        self.visible_leafs = []
         self.viewport = None
         self.n_net = n_net
         self.n_vertex = NVertex()
         self.textures = []
-        self.min_possible_zoom = 0  # minimal possible zoom calculated by NWindow
-        self.max_possible_zoom = 0  # max possible zoom calculated by NWindow
-        self.texture_zoom_threshold_percent = 0.1  # % of max_possible_zoom at which textures swap to vertices
-        self.texture_zoom_threshold = 0  # value calculated from texture_zoom_threshold_percent and  max_possible_zoom
-        self.texture_zoom_step = 0  # zoom delta at which textures should change LOD
         self.texture_max_lod = 10  # generate up to N different level of details
 
-        self.texture = None
+        self.visible_leafs = []
         self.mega_leaf = None
 
     def set_size(self, w, h):
@@ -87,20 +86,13 @@ class NTree(BSPTree):
         print("Tree depth assigned ", self.depth)
         # self.leaf = NTreeLeaf(0, 0, self.width, self.height, 0)
 
-    def load_window_zoom_values(self, min_zoom, max_zoom):
-        self.min_possible_zoom = min_zoom
-        self.max_possible_zoom = max_zoom
-        self.texture_zoom_threshold = self.max_possible_zoom * self.texture_zoom_threshold_percent
-        self.texture_zoom_step = 1 if self.depth == 0 else (self.texture_zoom_threshold - self.min_possible_zoom) / (
-            self.depth)
-
     def update_viewport(self, viewport):
         visible = []
         not_visible = []
         self.viewport = viewport
         self.traverse(viewport, visible, not_visible)
         if visible != self.visible_leafs:
-            print("Visible count: ", len(visible))
+            # print("Visible count: ", len(visible))
             self.visible_leafs = visible
             self.build_mega_leaf()
 
@@ -119,3 +111,32 @@ class NTree(BSPTree):
             self.mega_leaf = NTreeLeaf(x1, y1, x2 - x1, y2 - y1, level)
         elif not self.mega_leaf.equals(x1, y1, x2, y2, level):
             self.mega_leaf = NTreeLeaf(x1, y1, x2 - x1, y2 - y1, level)
+
+    def draw_debug_tree(self):
+        for l in self.visible_leafs:
+            if not l.background_attached:
+                l.background_attached = True
+                l.create_background_view()
+            l.draw_leaf_background()
+
+    def draw_leafs_vertices(self):
+        for l in self.visible_leafs:
+            if not l.nodes_attached:
+                l.nodes_attached = True
+                l.create_nodes_view(self.n_net)
+            l.draw_vertices()
+
+    def draw_mega_leaf_vertices(self):
+        if self.mega_leaf is not None:
+            if not self.mega_leaf.nodes_attached:
+                self.mega_leaf.nodes_attached = True
+                self.mega_leaf.create_nodes_view(self.n_net)
+            self.mega_leaf.draw_vertices()
+
+    def draw_leafs_textures(self, material_id):
+        for l in self.visible_leafs:
+            l.draw_texture(self.n_net, material_id, 1)
+
+    def draw_mega_leaf_texture(self, material_id):
+        if self.mega_leaf is not None:
+            self.mega_leaf.draw_texture(self.n_net, material_id, 1)

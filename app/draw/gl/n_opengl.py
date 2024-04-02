@@ -16,7 +16,11 @@ frame_count = 0
 
 n_window = NWindow()
 n_shader = NShader()
-n_texture_shader = NShader()
+# n_texture_shader = NShader()
+
+n_material_one_shader = NShader()
+n_material_two_shader = NShader()
+
 n_net = NNet(n_window)
 n_lod = NLvlOfDetails()
 n_tree = NTree(0, n_net)
@@ -41,22 +45,31 @@ def render():
         frame_count = 0
         start_time = time.time()
         # print(fps_text)
-    n_lod.get_current_lod()
+    n_lod.load_current_level()
 
     if DEBUG:
         # Use the shader program
         n_shader.use()
         n_shader.update_projection(n_window.get_projection_matrix())
-        n_lod.draw_debug_tree(n_tree)
+        n_tree.draw_debug_tree()
     else:
         # Use the shader program
         n_shader.use()
-        n_shader.update_projection(n_window.get_projection_matrix())
         n_lod.draw_lod_vertices(n_net, n_tree)
+        n_shader.update_projection(n_window.get_projection_matrix())
+
         # Use the texture shader program
-        n_texture_shader.use()
-        n_texture_shader.update_projection(n_window.get_projection_matrix())
-        n_lod.draw_lod_textures(n_net, n_tree, n_texture_shader)
+        # n_texture_shader.use()
+        # n_texture_shader.update_projection(n_window.get_projection_matrix())
+
+        n_lod.draw_lod_textures(n_net, n_tree, n_material_one_shader, n_material_two_shader)
+
+        n_material_one_shader.use()
+        n_material_one_shader.update_projection(n_window.get_projection_matrix())
+
+        n_material_two_shader.use()
+        n_material_two_shader.update_projection(n_window.get_projection_matrix())
+
 
     glfw.swap_buffers(n_window.window)
 
@@ -78,7 +91,9 @@ def main():
     version = glGetString(GL_VERSION)
     print(f"OpenGL version: {version.decode('utf-8')}")
     n_shader.compile_vertices_program()
-    n_texture_shader.compile_textures_program()
+    #n_texture_shader.compile_textures_program()
+    n_material_one_shader.compile_textures_material_one_program()
+    n_material_two_shader.compile_textures_material_two_program()
 
     model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
@@ -95,14 +110,13 @@ def main():
 
     # Init net
     n_net.init(10000000, [10000000, 1400000, 1004000, 3000000])
-    # n_net.init(tmp_layers[0], tmp_layers[1:])
+    #n_net.init(tmp_layers[0], tmp_layers[1:])
     # generate nodes grid
     n_net.generate_net()
     # update tree size and depth using grid size
     n_tree.load_net_size()
     # calculate min zoom using grid size
     n_window.calculate_min_zoom(n_net)
-    n_tree.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom)
     n_lod.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom, n_tree.depth)
     # create level of details
     n_lod.generate_levels(n_net, n_tree.depth)

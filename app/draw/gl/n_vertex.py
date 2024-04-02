@@ -9,7 +9,7 @@ from PIL import Image
 class NVertex():
     def __init__(self):
         self.num_instances = 0
-        self.radius = 0.03
+        self.radius = 0.06
         self.num_segments = 20
         self.nodes_vao = None
         self.nodes_vbo = None
