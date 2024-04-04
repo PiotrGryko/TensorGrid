@@ -3,15 +3,6 @@ import glfw
 
 from app.draw.gl.n_projection import Projection
 
-'''
-Managing glfw window
-size
-projection
-callbacks
-initialization
-render loop
-'''
-
 
 class NWindow:
     def __init__(self):

@@ -33,17 +33,18 @@ class NTreeLeaf(BSPLeaf):
     def create_background_view(self):
         self.n_vertex.create_plane(self.x1, self.y1, self.x2, self.y2, self.color)
 
-    def create_texture(self, n_net, material_id=1, factor=1):
-        img_data, img_width, img_height = n_net.get_texture2(self.x1, self.y1, self.x2, self.y2, factor)
+    def create_texture(self, n_net, textures_factory, material_id=1, factor=1):
+        subgrid = n_net.get_subgrid(self.x1, self.y1, self.x2, self.y2)
+        img_data, img_width, img_height = textures_factory.get_texture(subgrid, factor)
         tex = NTexture()
         tex.create_from_data(self.x1, self.y1, self.x2, self.y2, img_data, img_width,
                              img_height,
                              material_id=material_id)
         self.material_to_texture_map[material_id] = tex
 
-    def draw_texture(self, n_net, material_id, factor):
+    def draw_texture(self, n_net, textures_factory, material_id, factor):
         if material_id not in self.material_to_texture_map:
-            self.create_texture(n_net, material_id, factor)
+            self.create_texture(n_net, textures_factory, material_id, factor)
         if material_id in self.material_to_texture_map:
             self.material_to_texture_map[material_id].draw()
 
@@ -61,7 +62,7 @@ class NTreeLeaf(BSPLeaf):
 
 
 class NTree(BSPTree):
-    def __init__(self, depth, n_net):
+    def __init__(self, depth, n_net, textures_factory):
         super().__init__(0, 0, depth)
         self.viewport = None
         self.n_net = n_net
@@ -71,6 +72,7 @@ class NTree(BSPTree):
 
         self.visible_leafs = []
         self.mega_leaf = None
+        self.textures_factory = textures_factory
 
     def set_size(self, w, h):
         super().set_size(w, h)
@@ -135,8 +137,8 @@ class NTree(BSPTree):
 
     def draw_leafs_textures(self, material_id):
         for l in self.visible_leafs:
-            l.draw_texture(self.n_net, material_id, 1)
+            l.draw_texture(self.n_net, self.textures_factory, material_id, 1)
 
     def draw_mega_leaf_texture(self, material_id):
         if self.mega_leaf is not None:
-            self.mega_leaf.draw_texture(self.n_net, material_id, 1)
+            self.mega_leaf.draw_texture(self.n_net, self.textures_factory, material_id, 1)

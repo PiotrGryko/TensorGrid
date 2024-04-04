@@ -43,7 +43,7 @@ class NTexture:
 
 
 class Triangle:
-    def __init__(self, x1, y1, x2, y2, color=(1.0, 0.0, 0.0), material_id= 1):
+    def __init__(self, x1, y1, x2, y2, color=(1.0, 0.0, 0.0), material_id=1):
         # x1, y1 = -0.5, -0.5
         # x2, y2 = 0.5, 0.5
 
@@ -138,41 +138,14 @@ class Material:
         print(image, image_width, image_height)
         return self.from_image_data(img_data, image_width, image_height, 1)
 
-        # self.texture = gl.glGenTextures(1)
-        # gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
-        # gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
-        # gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
-        # gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
-        # gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR)
-        #
-        # image = Image.open(filepath)
-        # #image.show()
-        #
-        # img_data = np.array(image)
-        #
-        # image_width, image_height = image.width, image.height
-        # print(image, image_width, image_height)
-        #
-        # gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE,
-        #                 img_data)
-        # error = gl.glGetError()
-        # if error != gl.GL_NO_ERROR:
-        #     print(f"Error loading texture: {error}")
-        # gl.glGenerateMipmap(gl.GL_TEXTURE_2D)
-        # error = gl.glGetError()
-        # if error != gl.GL_NO_ERROR:
-        #     print(f"Error generating mipmap texture: {error}")
-
     def from_image_data(self, img_data, image_width, image_height, material_id):
         self.img_data = img_data
         self.image_width = image_width
         self.image_height = image_height
         self.texture = gl.glGenTextures(1)
         if material_id == 1:
-            print("from imagedata ",material_id)
             gl.glActiveTexture(gl.GL_TEXTURE0)
         elif material_id == 2:
-            print("from imagedata ", material_id)
             gl.glActiveTexture(gl.GL_TEXTURE1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
@@ -192,12 +165,12 @@ class Material:
         return self
 
     def use_texture0(self):
-        #print("use texture 0")
+        # print("use texture 0")
         gl.glActiveTexture(gl.GL_TEXTURE0)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
     def use_texture1(self):
-        #print("use texture 1")
+        # print("use texture 1")
         gl.glActiveTexture(gl.GL_TEXTURE1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
