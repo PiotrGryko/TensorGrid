@@ -9,7 +9,7 @@ from app.draw.gl.c_color_theme import NColorTheme
 from app.draw.gl.n_lod import NLvlOfDetails, LodType
 from app.draw.gl.n_net import NNet
 from app.draw.gl.n_shader import NShader
-from app.draw.gl.n_tex_factory import NodesGridTexFactory
+from app.draw.gl.n_tex_factory import RGBGridTextureFactory, ImageTextureFactory
 from app.draw.gl.n_tree import NTree
 from app.draw.gl.n_window import NWindow
 
@@ -24,11 +24,14 @@ n_material_one_shader = NShader()
 n_material_two_shader = NShader()
 
 color_theme = NColorTheme()
-textures_factory = NodesGridTexFactory(color_theme)
+
+textures_factory = ImageTextureFactory()
+rgb_textures_factory = RGBGridTextureFactory(color_theme)
+
 
 n_net = NNet(n_window, color_theme)
-n_lod = NLvlOfDetails(n_net)
-n_tree = NTree(0, n_net, textures_factory)
+n_lod = NLvlOfDetails(n_net, n_window)
+n_tree = NTree(0, n_net, rgb_textures_factory)
 
 DEBUG = False
 
@@ -83,24 +86,36 @@ def on_viewport_updated():
 
 def create_level_of_details():
 
-    texture_factor = int(n_net.total_size / 20000000)
+    texture_factor = int(n_net.total_size / 150000000)
+    texture_factor = max(texture_factor, 1)
     print("Texture factor: ",texture_factor)
+    #
+    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.0, file_path="tiles/test2.png")
+    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, file_path="tiles/test3.png")
+    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid,15)
+    n_lod.add_level(LodType.STATIC_TEXTURE, 0, img_data=img_data, img_width=img_width, img_height=img_height)
 
-    img_data, img_width, img_height = textures_factory.get_texture(n_net.grid, 4 * texture_factor)
+    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 10)
+    n_lod.add_level(LodType.STATIC_TEXTURE, 0.01, img_data=img_data, img_width=img_width, img_height=img_height)
 
-    n_lod.add_level(LodType.STATIC_TEXTURE, img_data, img_width, img_height)
+    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 5)
+    n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, img_data=img_data, img_width=img_width, img_height=img_height)
+    #n_lod.add_level(LodType.MEGA_LEAF_TEXTURE,0.02,texture_factor=1)
+    # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 8)
+    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.05, img_data=img_data, img_width=img_width, img_height=img_height)
+    #
+    # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 2)
+    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.1, img_data=img_data, img_width=img_width, img_height=img_height)
 
-    img_data, img_width, img_height = textures_factory.get_texture(n_net.grid, 3 * texture_factor)
-    n_lod.add_level(LodType.STATIC_TEXTURE, img_data, img_width, img_height)
+    # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
+    # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.1, texture_factor=1)
+    n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
+    n_lod.add_level(LodType.LEAFS_VERTICES, 0.1, texture_factor=1)
 
-    img_data, img_width, img_height = textures_factory.get_texture(n_net.grid, 2 * texture_factor)
-    n_lod.add_level(LodType.STATIC_TEXTURE, img_data, img_width, img_height)
+    # n_lod.add_level(LodType.LEAFS_TEXTURES,0.3)
+    # n_lod.add_level(LodType.LEAFS_VERTICES,0.4)
 
-    img_data, img_width, img_height = textures_factory.get_texture(n_net.grid, 1 * texture_factor)
-    n_lod.add_level(LodType.STATIC_TEXTURE, img_data, img_width, img_height)
 
-    n_lod.add_level(LodType.MEGA_LEAF_TEXTURE)
-    n_lod.add_level(LodType.MEGA_LEAF_VERTICES)
     n_lod.dump()
 
 
@@ -134,15 +149,16 @@ def main():
         tmp_layers.append(tensor.numel())
 
     # Init net
-    n_net.init(10000000, [10000000, 1400000, 1004000, 3000000])
-    #n_net.init(tmp_layers[0], tmp_layers[1:])
+    #n_net.init(10000000, [100000000, 14000000, 1004000])
+    n_net.init(tmp_layers[0], tmp_layers[1:])
     # generate nodes grid
     n_net.generate_net()
     # update tree size and depth using grid size
-    n_tree.load_net_size()
+    n_tree.set_size(n_net.total_width, n_net.total_height)
+    # n_tree.load_net_size()
     # calculate min zoom using grid size
     n_window.calculate_min_zoom(n_net)
-    n_lod.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom, n_tree.depth)
+    #n_lod.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom, n_tree.depth)
     # create level of details
     #n_lod.generate_levels(n_tree.depth)
     create_level_of_details()
@@ -153,6 +169,7 @@ def main():
     print("Generating tree")
     n_tree.generate()
     # start render loop
+    n_window.reset_to_center(n_net)
     print("Main loop")
     n_window.start_main_loop()
     glfw.terminate()

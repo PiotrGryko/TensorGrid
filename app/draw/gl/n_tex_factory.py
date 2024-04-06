@@ -1,21 +1,43 @@
+import os.path
 import random
 import time
 from abc import abstractmethod
 
 import numpy as np
-from PIL import Image
+import scipy
+from PIL import Image, ImageFilter
 from matplotlib import pyplot as plt
 
 
 class NTexFactory:
 
     @abstractmethod
-    def get_texture(self, data_grid, level=1):
+    def get_texture(self, data_grid, factor):
         """Implement this method"""
         pass
 
 
-class NodesGridTexFactory(NTexFactory):
+class ImageTextureFactory(NTexFactory):
+
+    def __init__(self):
+
+        self.images = {}
+        for i in range(13):
+            image_name = f"tiles/test{i}.png"
+            if not os.path.exists(image_name):
+                image_name = f"tiles/test{i}.jpg"
+            image = Image.open(image_name)
+            image_data = np.array(image)
+            image_width, image_height = image.width, image.height
+            self.images[i] = [image_data, image_width,image_height]
+
+
+    def get_texture(self, data_grid, factor):
+        image_data = self.images[factor]
+        return image_data[0], image_data[1], image_data[2]
+
+
+class RGBGridTextureFactory(NTexFactory):
 
     def __init__(self, color_theme):
         self.color_theme = color_theme
@@ -36,9 +58,10 @@ class NodesGridTexFactory(NTexFactory):
 
         image_rgba = image.convert('RGBA').resize((image_width, image_height))
         image_rgba_flipped = image_rgba.transpose(Image.FLIP_TOP_BOTTOM)
+        sharpened_image = image_rgba_flipped.filter(ImageFilter.SHARPEN)
 
         # Get the raw pixel data as a numpy array
-        image_data = np.array(image_rgba_flipped)
+        image_data = np.array(sharpened_image)
 
         print("Texture generated", time.time() - start_time, "width", image_width, "height", image_height, "factor",
               grid_factor)
@@ -60,5 +83,3 @@ class NodesGridTexFactory(NTexFactory):
             new_width = int(original_width * (max_size[1] / original_height))
 
         return new_width, new_height
-
-

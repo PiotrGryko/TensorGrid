@@ -24,14 +24,14 @@ class NWindow:
 
     def calculate_min_zoom(self, n_net):
         content_width, content_height = n_net.total_width, n_net.total_height
-        w,h = self.window_to_normalized_cords(self.width,self.height)
+        w, h = self.window_to_normalized_cords(self.width, self.height)
         min_zoom_x = w / content_width / 1.2
         min_zoom_y = h / content_height / 1.2
         self.min_zoom = min_zoom_x if min_zoom_x < min_zoom_y else min_zoom_y
-        self.zoom_factor = self.min_zoom
-        self.zoom_step =  (self.max_zoom - self.min_zoom)/4000  #self.min_zoom/2
-        self.mouse_scroll_callback(self.window,1,1)
-        print(w,h,content_width,content_height)
+        self.zoom_factor = self.min_zoom # current zoom value
+        self.zoom_step = (self.max_zoom - self.min_zoom) / 4000  # zoom step change on every mouse wheel scroll
+        self.mouse_scroll_callback(self.window, 1, 1)
+        print(w, h, content_width, content_height)
         print("Min zoom calculated:", self.min_zoom, self.max_zoom, self.zoom_step)
 
     def create_window(self):
@@ -111,10 +111,9 @@ class NWindow:
 
     def mouse_scroll_callback(self, window, x_offset, y_offset):
 
-
         delta = - y_offset * self.zoom_step
         self.zoom_factor += delta
-        #print("Zoom offset ",y_offset, self.zoom_factor)
+        # print("Zoom offset ",y_offset, self.zoom_factor)
         if self.zoom_factor <= self.min_zoom:
             self.zoom_factor = self.min_zoom
 
@@ -157,4 +156,17 @@ class NWindow:
         self.projection.translate_by(dx, dy)
         self.last_mouse_x = xpos
         self.last_mouse_y = ypos
+        self.on_viewport_updated()
+
+    def reset_to_center(self, n_net):
+        world_w, world_h = self.projection.world_to_window_point(n_net.total_width,n_net.total_height)
+        # by default world is positioned (0,0) in the bottom left corner
+        dx = self.width / 2
+        dy = self.height/2
+        dx = dx / self.width * 2.0
+        dx = dx - world_w - (dx-world_w)/2
+        dy = dy / self.height * 2.0
+        dy = dy - world_h - (dy-world_h)/2
+
+        self.projection.translate_by(dx, dy)
         self.on_viewport_updated()

@@ -138,27 +138,31 @@ class BSPLeaf:
 
     def traverse(self, viewport, visible, not_visible, max_depth=None):
         is_visible, is_fully_visible, contains_viewport = self.is_visible(viewport)
+        x, y, w, h, zoom = viewport
         # Not visible discard
         if not is_visible:
             not_visible.append(self)
             return False
         # Is fully visible
-        if is_fully_visible:
-            visible.append(self)
-            return True
-        if contains_viewport:
-            max_depth = self.level + 5
-        if max_depth is None:
-            max_depth = self.level + 5
-        if self.level == max_depth:
+        # if is_fully_visible:
+        #     visible.append(self)
+        #     return True
+        # if contains_viewport:
+        #     max_depth = self.level + 5
+        # if max_depth is None:
+        #     max_depth = self.level + 5
+        # if self.level == max_depth:
+        #     visible.append(self)
+        #     return True
+        if self.w < w/3 and is_visible:
             visible.append(self)
             return True
         if not self.generated:
             #print("Leafs loaded",self)
             self.generate_leafs()
-        if len(self.children) == 0:
-            visible.append(self)
-            return True
+        # if len(self.children) == 0:
+        #     visible.append(self)
+        #     return True
         for c in self.children:
             c.traverse(viewport, visible, not_visible, max_depth)
         return True

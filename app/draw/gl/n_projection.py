@@ -38,7 +38,13 @@ class Projection:
         inverse_projection_matrix = np.linalg.inv(self.matrix)
         world_point_homogeneous = point @ inverse_projection_matrix
         world_point_homogeneous /= world_point_homogeneous[3]
-        return [world_point_homogeneous[0],world_point_homogeneous[1]]
+        return [world_point_homogeneous[0], world_point_homogeneous[1]]
+
+    def world_to_window_point(self, x, y):
+        point = np.array([x, y, 0.0, 1.0], dtype=np.float32)
+        world_point_homogeneous = point @ self.matrix
+        world_point_homogeneous /= world_point_homogeneous[3]
+        return [world_point_homogeneous[0], world_point_homogeneous[1]]
 
     def set_aspect_ratio(self, aspect_ratio):
         self.matrix[0][0] = self.get_zoom() / aspect_ratio
