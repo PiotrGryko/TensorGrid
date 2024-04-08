@@ -31,6 +31,36 @@ class Projection:
              1.0]
         ], dtype=np.float32)
 
+    def get_projection_for_tile(self, x1, y1, x2, y2):
+        # Calculate the midpoint of the tile
+        mid_x = (x1 + x2) / 2
+        mid_y = (y1 + y2) / 2
+
+        # Calculate the scale factors needed
+        scale_x = 2.0 / (x2 - x1)
+        scale_y = 2.0 / (y2 - y1)
+
+        # Create translation and scaling matrices
+        translation_matrix = np.array([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [-mid_x, -mid_y, 0.0, 1.0]
+        ], dtype=np.float32)
+
+        scaling_matrix = np.array([
+            [scale_x, 0, 0, 0],
+            [0, scale_y, 0, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1]
+        ], dtype=np.float32)
+
+        # Update the projection matrix by first translating, then scaling
+        _matrix = np.dot(self.matrix, translation_matrix)
+        _matrix = np.dot(_matrix, scaling_matrix)
+        return _matrix
+
+
     # Map window point in [-1,1] cords to world cords
     # Usage example: node_position = window_to_world_point(mouse_position)
     def window_to_world_point(self, x, y):

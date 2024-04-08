@@ -17,11 +17,6 @@ start_time = 0
 frame_count = 0
 
 n_window = NWindow()
-n_shader = NShader()
-# n_texture_shader = NShader()
-
-n_material_one_shader = NShader()
-n_material_two_shader = NShader()
 
 color_theme = NColorTheme()
 
@@ -31,7 +26,7 @@ rgb_textures_factory = RGBGridTextureFactory(color_theme)
 
 n_net = NNet(n_window, color_theme)
 n_lod = NLvlOfDetails(n_net, n_window)
-n_tree = NTree(0, n_net, rgb_textures_factory)
+n_tree = NTree(0, n_net,n_window, rgb_textures_factory)
 
 DEBUG = False
 
@@ -57,24 +52,24 @@ def render():
 
     if DEBUG:
         # Use the shader program
-        n_shader.use()
-        n_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_vertices_shader.use()
+        n_window.n_vertices_shader.update_projection(n_window.get_projection_matrix())
         n_tree.draw_debug_tree()
     else:
 
         n_lod.load_current_level()
         # Use the shader program
-        n_shader.use()
+        n_window.n_vertices_shader.use()
         n_lod.draw_lod_vertices(n_tree)
-        n_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_vertices_shader.update_projection(n_window.get_projection_matrix())
 
-        n_lod.draw_lod_textures(n_tree, n_material_one_shader, n_material_two_shader)
+        n_lod.draw_lod_textures(n_tree, n_window.n_material_one_shader, n_window.n_material_two_shader)
 
-        n_material_one_shader.use()
-        n_material_one_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_material_one_shader.use()
+        n_window.n_material_one_shader.update_projection(n_window.get_projection_matrix())
 
-        n_material_two_shader.use()
-        n_material_two_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_material_two_shader.use()
+        n_window.n_material_two_shader.update_projection(n_window.get_projection_matrix())
 
     glfw.swap_buffers(n_window.window)
 
@@ -94,12 +89,15 @@ def create_level_of_details():
     # n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, file_path="tiles/test3.png")
     img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid,15)
     n_lod.add_level(LodType.STATIC_TEXTURE, 0, img_data=img_data, img_width=img_width, img_height=img_height)
-
     img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 10)
-    n_lod.add_level(LodType.STATIC_TEXTURE, 0.01, img_data=img_data, img_width=img_width, img_height=img_height)
+    n_lod.add_level(LodType.STATIC_TEXTURE, 0.005, img_data=img_data, img_width=img_width, img_height=img_height)
 
-    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 5)
-    n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, img_data=img_data, img_width=img_width, img_height=img_height)
+    #
+    # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 10)
+    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.01, img_data=img_data, img_width=img_width, img_height=img_height)
+    #
+    # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 5)
+    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, img_data=img_data, img_width=img_width, img_height=img_height)
     #n_lod.add_level(LodType.MEGA_LEAF_TEXTURE,0.02,texture_factor=1)
     # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 8)
     # n_lod.add_level(LodType.STATIC_TEXTURE, 0.05, img_data=img_data, img_width=img_width, img_height=img_height)
@@ -109,8 +107,9 @@ def create_level_of_details():
 
     # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
     # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.1, texture_factor=1)
-    n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
-    n_lod.add_level(LodType.LEAFS_VERTICES, 0.1, texture_factor=1)
+    n_lod.add_level(LodType.LEAFS_VERTICES_TO_TEXTURE, 0.01, texture_factor=1)
+    n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.1, texture_factor=1)
+    n_lod.add_level(LodType.MEGA_LEAF_VERTICES, 0.2, texture_factor=1)
 
     # n_lod.add_level(LodType.LEAFS_TEXTURES,0.3)
     # n_lod.add_level(LodType.LEAFS_VERTICES,0.4)
@@ -129,10 +128,10 @@ def main():
     gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
     version = glGetString(GL_VERSION)
     print(f"OpenGL version: {version.decode('utf-8')}")
-    n_shader.compile_vertices_program()
+    n_window.n_vertices_shader.compile_vertices_program()
     # n_texture_shader.compile_textures_program()
-    n_material_one_shader.compile_textures_material_one_program()
-    n_material_two_shader.compile_textures_material_two_program()
+    n_window.n_material_one_shader.compile_textures_material_one_program()
+    n_window.n_material_two_shader.compile_textures_material_two_program()
 
     model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
@@ -173,7 +172,9 @@ def main():
     print("Main loop")
     n_window.start_main_loop()
     glfw.terminate()
-    gl.glDeleteProgram(n_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_vertices_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_material_one_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_material_two_shader.shader_program)
 
 
 if __name__ == "__main__":

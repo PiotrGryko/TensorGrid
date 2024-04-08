@@ -2,6 +2,7 @@ import OpenGL.GL as gl
 import glfw
 
 from app.draw.gl.n_projection import Projection
+from app.draw.gl.n_shader import NShader
 
 
 class NWindow:
@@ -22,13 +23,17 @@ class NWindow:
         self.viewport_updated_func = None
         self.zoom_percent = 0
 
+        self.n_vertices_shader = NShader()
+        self.n_material_one_shader = NShader()
+        self.n_material_two_shader = NShader()
+
     def calculate_min_zoom(self, n_net):
         content_width, content_height = n_net.total_width, n_net.total_height
         w, h = self.window_to_normalized_cords(self.width, self.height)
         min_zoom_x = w / content_width / 1.2
         min_zoom_y = h / content_height / 1.2
         self.min_zoom = min_zoom_x if min_zoom_x < min_zoom_y else min_zoom_y
-        self.zoom_factor = self.min_zoom # current zoom value
+        self.zoom_factor = self.min_zoom  # current zoom value
         self.zoom_step = (self.max_zoom - self.min_zoom) / 4000  # zoom step change on every mouse wheel scroll
         self.mouse_scroll_callback(self.window, 1, 1)
         print(w, h, content_width, content_height)
@@ -93,6 +98,21 @@ class NWindow:
         x2, y2 = self.projection.window_to_world_point(1, 1)
         w, h = x2 - x1, y2 - y1
         return (x1, y1, w, h, self.zoom_factor)
+
+    def world_coords_to_screen_coords(self, x1, y1, x2, y2):
+        # Window bottom left
+        sx1, sy1 = self.projection.world_to_window_point(x1, y1)
+        # Window top right
+        sx2, sy2 = self.projection.world_to_window_point(x2, y2)
+
+        return (sx1, sy1, sx2, sy2, self.zoom_factor)
+
+    def screen_coords_to_window_coords(self, x1, y1, x2, y2):
+        sx1 = (x1 + 1) * self.width / 2.0
+        sy1 = (y1 + 1) * self.height / 2.0
+        sx2 = (x2 + 1) * self.width / 2.0
+        sy2 = (y2 + 1) * self.height / 2.0
+        return (sx1, sy1, sx2, sy2)
 
     def on_viewport_updated(self):
         if self.viewport_updated_func:
@@ -159,14 +179,14 @@ class NWindow:
         self.on_viewport_updated()
 
     def reset_to_center(self, n_net):
-        world_w, world_h = self.projection.world_to_window_point(n_net.total_width,n_net.total_height)
+        world_w, world_h = self.projection.world_to_window_point(n_net.total_width, n_net.total_height)
         # by default world is positioned (0,0) in the bottom left corner
         dx = self.width / 2
-        dy = self.height/2
+        dy = self.height / 2
         dx = dx / self.width * 2.0
-        dx = dx - world_w - (dx-world_w)/2
+        dx = dx - world_w - (dx - world_w) / 2
         dy = dy / self.height * 2.0
-        dy = dy - world_h - (dy-world_h)/2
+        dy = dy - world_h - (dy - world_h) / 2
 
         self.projection.translate_by(dx, dy)
         self.on_viewport_updated()

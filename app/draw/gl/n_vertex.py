@@ -40,7 +40,6 @@ class NVertex():
 
     def create_plane(self, x1, y1, x2, y2, color=(1.0, 0.0, 0.0)):
         # Define the vertices of the square
-
         vertices = np.array([
             x1, y1,  # Bottom-left
             x2, y1,  # Bottom-right
@@ -91,7 +90,7 @@ class NVertex():
         gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, ebo)
         gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, self.plane_indices.nbytes, self.plane_indices, gl.GL_STATIC_DRAW)
 
-    def create_nodes(self, positions, colors=None):
+    def create_nodes(self,positions, colors=None):
         # Vertex data for a single circle
         dx, dy = positions.shape
         radius = self.radius
@@ -146,4 +145,3 @@ class NVertex():
         gl.glVertexAttribPointer(2, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
         gl.glEnableVertexAttribArray(2)
         gl.glVertexAttribDivisor(2, 1)  # Set the instance data divisor
-

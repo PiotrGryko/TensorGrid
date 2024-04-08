@@ -209,4 +209,4 @@ class NLvlOfDetails:
             offset = 1 - offset
 
         # print(offset, start_level, end_level, norm_zoom, self.current_level.level)
-        return offset
+        return  offset

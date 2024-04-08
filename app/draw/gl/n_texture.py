@@ -25,12 +25,14 @@ class NTexture:
             self.material_two = Material().from_image_data(img_data, img_width, img_height, material_id)
         self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0), material_id=material_id)
 
-    def create_from_fbo(self, x1, y1, x2, y2, n_vertex, img_width, img_height, material_id=1):
+    def create_from_fbo(self, n_vertex, n_window, x1, y1, x2, y2, material_id=1):
+
         if material_id == 1:
-            self.material_one = Material().from_fbo(n_vertex, img_width, img_height, material_id)
+            self.material_one = Material().from_fbo(n_vertex, n_window, x1, y1, x2, y2, material_id)
         elif material_id == 2:
-            self.material_two = Material().from_fbo(n_vertex, img_width, img_height, material_id)
-        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0), material_id=material_id)
+            self.material_two = Material().from_fbo(n_vertex, n_window, x1, y1, x2, y2, material_id)
+        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0),
+                                 material_id=material_id)
 
     def add_texture_from_object(self, material, material_id=1):
         m = material
@@ -74,10 +76,10 @@ class Triangle:
         ], dtype=np.float32)
 
         self.tex_coords = np.array([
-            0.0, 1.0,  # Bottom-left
-            1.0, 1.0,  # Bottom-right
-            1.0, 0.0,  # Top-right
-            0.0, 0.0  # Top-left
+            0.0, 0.0,  # Bottom-left becomes Top-left
+            1.0, 0.0,  # Bottom-right becomes Top-right
+            1.0, 1.0,  # Top-right becomes Bottom-right
+            0.0, 1.0  # Top-left becomes Bottom-left
         ], dtype=np.float32)
         # Define the indices to form two triangles
         self.indices = np.array([
@@ -175,19 +177,28 @@ class Material:
             print(f"Error generating mipmap texture: {error}")
         return self
 
-    def from_fbo(self, n_vertex, image_width, image_height, material_id):
+    def from_fbo(self, n_vertex, n_window, x1, y1, x2, y2, material_id):
         # Generate texture
         self.texture = gl.glGenTextures(1)
-        self.image_width = image_width = 1280
-        self.image_height = image_height  = 1280
-
-        print("create render texture ", image_width,image_height)
-
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
+
+        (sx1, sy1, sx2, sy2, zoom_factor) = n_window.world_coords_to_screen_coords(x1, y1, x2, y2)
+        (wx1, wy1, wx2, wy2) = n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
+
+        image_width = round(wx2 - wx1)
+        image_height = round(wy2 - wy1)
+
+        viewport = gl.glGetIntegerv(gl.GL_VIEWPORT)
+
+        print("Write texture to FBO width and height  ", image_width, image_height)
+        print("Quad world coord ", x1, y1, x2, y2)
+        print("Quad scene coord (Normalized Device Coordinates (NDC))", sx1, sy1, sx2, sy2)
+        print("Quad window coord", wx1, wy1, wx2, wy2)
+        print(viewport)
 
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA,
                         gl.GL_UNSIGNED_BYTE, None)
@@ -201,19 +212,11 @@ class Material:
         if gl.glCheckFramebufferStatus(gl.GL_FRAMEBUFFER) != gl.GL_FRAMEBUFFER_COMPLETE:
             print("Error: Framebuffer is not complete.")
 
-        error = gl.glGetError()
-        if error != gl.GL_NO_ERROR:
-            print(f"Error loading texture: {error}")
-        gl.glGenerateMipmap(gl.GL_TEXTURE_2D)
-        error = gl.glGetError()
-        if error != gl.GL_NO_ERROR:
-            print(f"Error generating mipmap texture: {error}")
-
-        # Unbind the framebuffer until you need to render to it
-        gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
-        gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, self.fbo)
+        gl.glViewport(0, 0, image_width, image_height)
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
-        gl.glViewport(0, 0, int(image_width), int(image_height))
+
+        tile_projection_matrix = n_window.projection.get_projection_for_tile(sx1, sy1, sx2, sy2)
+        n_window.n_vertices_shader.update_projection(tile_projection_matrix)
 
         # Activate the first texture unit and bind your texture
         if material_id == 1:
@@ -223,18 +226,21 @@ class Material:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
         # Your drawing code here
+        #n_vertex.draw_plane()
         n_vertex.draw_nodes()
 
-        #
+        # # #
+        # # # # # #
         # gl.glReadBuffer(gl.GL_COLOR_ATTACHMENT0)
         # data = gl.glReadPixels(0, 0, image_width, image_height, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE)
         # image = Image.frombytes("RGBA", (int(image_width), int(image_height)), data)
-        # # In OpenGL, the origin is at the bottom-left corner, so we need to flip the image vertically
-        # image = image.transpose(Image.FLIP_TOP_BOTTOM)
-        # image.save("tiles/output.png")
+        # image.save(f"tiles/output{int(image_width)}_{int(image_height)}.png")
 
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
-        gl.glViewport(0, 0, int(1280), int(1280))
+        n_window.n_vertices_shader.update_projection(n_window.projection.matrix)
+
+        gl.glViewport(0, 0, viewport[2], viewport[3])
+
         return self
 
     def use_texture0(self):
