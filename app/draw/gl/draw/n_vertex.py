@@ -1,9 +1,7 @@
-import ctypes
 import math
-import OpenGL.GL as gl
 
+import OpenGL.GL as gl
 import numpy as np
-from PIL import Image
 
 
 class NVertex():

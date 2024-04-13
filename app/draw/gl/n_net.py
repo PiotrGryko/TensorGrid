@@ -16,10 +16,8 @@ class Layer:
         self.size_x = 0
         self.size_y = 0
         self.is_square = self.size > 20
-
         self.max_batch_size = 50000000  # Numpy performance drops with large numbers
         self.sublayers = []
-        # self.split()
 
     def define_layer_size(self):
         if self.is_square:
@@ -38,7 +36,6 @@ class Layer:
             sub_colum_offset = int(self.size_x / 2)
             sub_row_offset = int(self.size_y / 2)
             sub_size = int(self.size / 4)
-            # print("splitted", sub_size)
             self.sublayers.append(Layer(sub_size, self.column_offset, self.row_offset))
             self.sublayers.append(Layer(sub_size, self.column_offset, self.row_offset + sub_row_offset))
             self.sublayers.append(Layer(sub_size, self.column_offset + sub_colum_offset, self.row_offset))
@@ -55,15 +52,9 @@ class Layer:
             result.append(self)
         return result
 
-    def get_neuron_positions(self):
-        indices = np.arange(self.size)
+    def get_neuron_positions(self, calculator):
         positions = np.random.uniform(0, 1, self.size)
-
-        grid_x = np.mod(indices, self.size_x)
-        if self.is_square:
-            grid_y = np.floor_divide(indices, self.size_y)
-        else:
-            grid_y = indices
+        grid_x, grid_y, grid_size = calculator.calculate_positions(self.size)
 
         columns_indices = grid_x + self.column_offset if self.column_offset > 0 else grid_x
         rows_indices = grid_y + self.row_offset if self.row_offset > 0 else grid_y
@@ -81,11 +72,10 @@ class NNet:
         self.total_height = 0
         self.total_size = 0
         self.grid = None
-        self.first_row = None
-        self.first_column = None
         self.node_gap_x = 0.2  # 100 / self.n_window.width * 2.0
         self.node_gap_y = 0.2  # 100 / self.n_window.width * 2.0
         self.default_value = -2
+        self.sublayers_enabled = True
 
     def init(self, input_size, layers_sizes):
         print(f"Init net {input_size} {layers_sizes}")
@@ -97,7 +87,7 @@ class NNet:
             self.layers.append(grid_layer)
 
         max_row_count = max(l.size_y for l in self.layers)
-        gap_between_layers = 20  # 10 columns
+        gap_between_layers = 200
         for index, grid_layer in enumerate(self.layers):
             column_offset = sum([l.size_x for l in self.layers[:index]])
             layer_offset = index * gap_between_layers
@@ -106,7 +96,8 @@ class NNet:
             if current_row_count < max_row_count:
                 row_offset = int((max_row_count - current_row_count) / 2)
             grid_layer.define_layer_offset(column_offset + layer_offset, row_offset)
-            grid_layer.split()
+            if self.sublayers_enabled:
+                grid_layer.split()
 
         self.grid_columns_count = sum([l.size_x for l in self.layers]) + gap_between_layers * len(self.layers)
         self.grid_rows_count = max([l.size_y for l in self.layers])
@@ -114,22 +105,22 @@ class NNet:
         self.total_height = self.grid_rows_count * self.node_gap_y
         self.grid = np.full((self.grid_rows_count, self.grid_columns_count), self.default_value).astype(np.float32)
         self.total_size = sum(all_layers)
-        print("Net initialized", time.time() - start_time, "total size: ", self.total_size, "node gaps: ",
-              self.node_gap_x, self.node_gap_y)
+        print("Net initialized", time.time() - start_time,
+              "total size: ", self.total_size,
+              "node gaps: ", self.node_gap_x, self.node_gap_y)
 
-    def process_batch(self, sublayer, index, grid):
+    def process_batch(self,calculator, sublayer, index, grid):
         # Perform some computation on the chunk
-        positions, columns_indices, rows_indices = sublayer.get_neuron_positions()
+        positions, columns_indices, rows_indices = sublayer.get_neuron_positions(calculator)
         grid[rows_indices, columns_indices] = positions
 
-    def generate_net(self):
-        print(f"generate net")
+    def generate_net(self, calculator):
+        print(f"Generate net")
         print(f"Grid size, columns: {self.grid_columns_count} rows: {self.grid_rows_count}")
         print("Size in Pixels", self.total_width, self.total_height)
         start_time = time.time()
 
         executor = ThreadPoolExecutor()
-        print("Splitting data into batches for parallel load")
         sublayers = []
         for layer in self.layers:
             sublayers.extend(layer.collect())
@@ -137,7 +128,7 @@ class NNet:
         print("Batches count:", len(sublayers))
         futures = []
         for index, batch in enumerate(sublayers):
-            futures.append(executor.submit(self.process_batch, batch, index, self.grid))
+            futures.append(executor.submit(self.process_batch,calculator, batch, index, self.grid))
 
         # Load the net and print progress bar
         for index, future in enumerate(as_completed(futures)):

@@ -2,7 +2,7 @@ import OpenGL.GL as gl
 import glfw
 
 from app.draw.gl.n_projection import Projection
-from app.draw.gl.n_shader import NShader
+from app.draw.gl.draw.n_shader import NShader
 
 
 class NWindow:

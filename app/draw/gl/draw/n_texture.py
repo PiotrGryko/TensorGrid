@@ -194,11 +194,11 @@ class Material:
 
         viewport = gl.glGetIntegerv(gl.GL_VIEWPORT)
 
-        print("Write texture to FBO width and height  ", image_width, image_height)
-        print("Quad world coord ", x1, y1, x2, y2)
-        print("Quad scene coord (Normalized Device Coordinates (NDC))", sx1, sy1, sx2, sy2)
-        print("Quad window coord", wx1, wy1, wx2, wy2)
-        print(viewport)
+        # print("Write texture to FBO width and height  ", image_width, image_height)
+        # print("Quad world coord ", x1, y1, x2, y2)
+        # print("Quad scene coord (Normalized Device Coordinates (NDC))", sx1, sy1, sx2, sy2)
+        # print("Quad window coord", wx1, wy1, wx2, wy2)
+        #print(viewport)
 
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA,
                         gl.GL_UNSIGNED_BYTE, None)

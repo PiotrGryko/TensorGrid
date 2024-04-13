@@ -5,11 +5,12 @@ import glfw
 from OpenGL.GL import *
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-from app.draw.gl.c_color_theme import NColorTheme
+from app.draw.gl.utils.c_color_theme import NColorTheme
 from app.draw.gl.n_lod import NLvlOfDetails, LodType
 from app.draw.gl.n_net import NNet
-from app.draw.gl.n_shader import NShader
-from app.draw.gl.n_tex_factory import RGBGridTextureFactory, ImageTextureFactory
+from app.draw.gl.calculator.n_open_cl_calculator import OpenCLPositionsCalculator
+from app.draw.gl.n_scene import NScene
+from app.draw.gl.utils.n_tex_factory import RGBGridTextureFactory, ImageTextureFactory
 from app.draw.gl.n_tree import NTree
 from app.draw.gl.n_window import NWindow
 
@@ -23,11 +24,11 @@ color_theme = NColorTheme()
 textures_factory = ImageTextureFactory()
 rgb_textures_factory = RGBGridTextureFactory(color_theme)
 
-
+calculator = OpenCLPositionsCalculator()
 n_net = NNet(n_window, color_theme)
 n_lod = NLvlOfDetails(n_net, n_window)
-n_tree = NTree(0, n_net,n_window, rgb_textures_factory)
-
+n_tree = NTree(0)
+n_scene = NScene(n_lod, n_tree, n_net, n_window, rgb_textures_factory)
 DEBUG = False
 
 
@@ -54,16 +55,18 @@ def render():
         # Use the shader program
         n_window.n_vertices_shader.use()
         n_window.n_vertices_shader.update_projection(n_window.get_projection_matrix())
-        n_tree.draw_debug_tree()
+        n_scene.draw_debug_tree()
     else:
 
         n_lod.load_current_level()
-        # Use the shader program
-        n_window.n_vertices_shader.use()
-        n_lod.draw_lod_vertices(n_tree)
-        n_window.n_vertices_shader.update_projection(n_window.get_projection_matrix())
+        n_scene.draw_scene(
+            n_window.n_vertices_shader,
+            n_window.n_material_one_shader,
+            n_window.n_material_two_shader
+        )
 
-        n_lod.draw_lod_textures(n_tree, n_window.n_material_one_shader, n_window.n_material_two_shader)
+        n_window.n_vertices_shader.use()
+        n_window.n_vertices_shader.update_projection(n_window.get_projection_matrix())
 
         n_window.n_material_one_shader.use()
         n_window.n_material_one_shader.update_projection(n_window.get_projection_matrix())
@@ -79,42 +82,19 @@ def on_viewport_updated():
     n_tree.update_viewport(viewport)
     n_lod.update_viewport(viewport)
 
+
 def create_level_of_details():
 
-    texture_factor = int(n_net.total_size / 150000000)
-    texture_factor = max(texture_factor, 1)
-    print("Texture factor: ",texture_factor)
-    #
     # n_lod.add_level(LodType.STATIC_TEXTURE, 0.0, file_path="tiles/test2.png")
     # n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, file_path="tiles/test3.png")
-    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid,15)
+    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 15)
     n_lod.add_level(LodType.STATIC_TEXTURE, 0, img_data=img_data, img_width=img_width, img_height=img_height)
     img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 10)
-    n_lod.add_level(LodType.STATIC_TEXTURE, 0.005, img_data=img_data, img_width=img_width, img_height=img_height)
-
-    #
-    # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 10)
-    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.01, img_data=img_data, img_width=img_width, img_height=img_height)
-    #
-    # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 5)
-    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, img_data=img_data, img_width=img_width, img_height=img_height)
-    #n_lod.add_level(LodType.MEGA_LEAF_TEXTURE,0.02,texture_factor=1)
-    # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 8)
-    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.05, img_data=img_data, img_width=img_width, img_height=img_height)
-    #
-    # img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 2)
-    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.1, img_data=img_data, img_width=img_width, img_height=img_height)
-
-    # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
-    # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.1, texture_factor=1)
-    n_lod.add_level(LodType.LEAFS_VERTICES_TO_TEXTURE, 0.01, texture_factor=1)
-    n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.1, texture_factor=1)
-    n_lod.add_level(LodType.MEGA_LEAF_VERTICES, 0.2, texture_factor=1)
-
-    # n_lod.add_level(LodType.LEAFS_TEXTURES,0.3)
-    # n_lod.add_level(LodType.LEAFS_VERTICES,0.4)
-
-
+    n_lod.add_level(LodType.STATIC_TEXTURE, 0.01, img_data=img_data, img_width=img_width, img_height=img_height)
+    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 5)
+    n_lod.add_level(LodType.STATIC_TEXTURE, 0.05, img_data=img_data, img_width=img_width, img_height=img_height)
+    n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.08, texture_factor=1)
+    n_lod.add_level(LodType.MEGA_LEAF_VERTICES, 0.3, texture_factor=1)
     n_lod.dump()
 
 
@@ -129,7 +109,6 @@ def main():
     version = glGetString(GL_VERSION)
     print(f"OpenGL version: {version.decode('utf-8')}")
     n_window.n_vertices_shader.compile_vertices_program()
-    # n_texture_shader.compile_textures_program()
     n_window.n_material_one_shader.compile_textures_material_one_program()
     n_window.n_material_two_shader.compile_textures_material_two_program()
 
@@ -144,25 +123,25 @@ def main():
 
     tmp_layers = []
     for name, tensor in all_layers_and_parameters:
-        print("layer name",name)
+        #print("layer name", tensor)
         tmp_layers.append(tensor.numel())
-
+    #
+    # grid_X, grid_y, grid_size = calculator.calculate_positions(14000000)
+    # print("Shader result: ", grid_X, grid_y, grid_size)
     # Init net
-    #n_net.init(10000000, [100000000, 14000000, 1004000])
-    n_net.init(tmp_layers[0], tmp_layers[1:])
+    n_net.init(10000000, [100000000, 14000000, 1004000])
+    #n_net.init(tmp_layers[0], tmp_layers[1:])
     # generate nodes grid
-    n_net.generate_net()
+    n_net.generate_net(calculator)
     # update tree size and depth using grid size
     n_tree.set_size(n_net.total_width, n_net.total_height)
     # n_tree.load_net_size()
     # calculate min zoom using grid size
     n_window.calculate_min_zoom(n_net)
-    #n_lod.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom, n_tree.depth)
+    # n_lod.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom, n_tree.depth)
     # create level of details
-    #n_lod.generate_levels(n_tree.depth)
+    # n_lod.generate_levels(n_tree.depth)
     create_level_of_details()
-
-
 
     # generate tree
     print("Generating tree")

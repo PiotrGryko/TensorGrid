@@ -3,7 +3,7 @@ from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
 
-from app.draw.gl.n_shader import NShader
+from app.draw.gl.draw.n_shader import NShader
 
 
 class App:

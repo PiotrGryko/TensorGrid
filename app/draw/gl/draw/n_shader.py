@@ -43,75 +43,6 @@ void main()
 }
 """
 
-# # Fragment shader source code for drawing textures
-# texture_fragment_shader_source = """
-# #version 330 core
-#
-# in vec3 color;
-# in vec2 frag_tex_coord;
-# in vec2 frag_tex_coord2;
-# out vec4 frag_color;
-#
-# uniform sampler2D tex1;
-# uniform sampler2D tex2;
-#
-# uniform float fading_factor = 0.0f;
-# uniform bool tex2_enabled = false;
-#
-#
-# void main()
-# {
-#     vec4 tex_color1 = texture(tex1, frag_tex_coord);
-#     vec4 tex_color2 = texture(tex2, frag_tex_coord2);
-#     if(tex2_enabled)
-#     {
-#         frag_color = mix(tex_color1, tex_color2, fading_factor);
-#     }
-#     else
-#     {
-#         frag_color = tex_color1;
-#     }
-# }
-# """
-#
-#
-# # Fragment shader source code for drawing textures
-# texture_fragment_shader_source_test = """
-# #version 330 core
-#
-# in vec3 color;
-# in vec2 frag_tex_coord;
-# in vec2 frag_tex_coord2;
-# out vec4 frag_color;
-#
-# uniform sampler2D tex1;
-# uniform sampler2D tex2;
-#
-# uniform float fading_factor = 1.0f;
-# uniform float alpha_factor = 1.0f;
-# uniform bool tex2_enabled = true;
-#
-#
-# void main()
-# {
-#     vec4 tex_color1 = texture(tex1, frag_tex_coord);
-#     vec4 tex_color2 = texture(tex2, frag_tex_coord2);
-#     if(tex2_enabled)
-#     {
-#
-#         frag_color = mix(tex_color1, tex_color2, fading_factor);
-#         frag_color = tex_color2;
-#
-#     }
-#     else
-#     {
-#         frag_color = mix(tex_color2, tex_color1, fading_factor);
-#         frag_color = tex_color1;
-#     }
-#     // frag_color.a = alpha_factor;
-# }
-# """
-
 
 # Fragment shader source code for drawing textures
 texture_fragment_shader_material_one = """
@@ -165,29 +96,6 @@ void main()
 """
 
 
-# geometry_shader_source = """
-# #version 330
-#
-#
-#
-# layout(triangles) in;
-# layout(triangle_strip, max_vertices = 3) out;
-#
-# in vec3 vertexColor[];
-# out vec3 color;
-#
-# void main()
-# {
-#     color = vertexColor[0];
-#     for (int i = 0; i < gl_in.length(); i++)
-#     {
-#         gl_Position = gl_in[i].gl_Position;
-#         EmitVertex();
-#     }
-#     EndPrimitive();
-# }
-# """
-
 class NShader:
     def __init__(self):
         self.shader_program = None
@@ -231,7 +139,7 @@ class NShader:
 
     def compile(self, vertex_shader_source, fragment_shader_source):
         self.shader_version = gl.glGetString(gl.GL_SHADING_LANGUAGE_VERSION)
-        print("Supported shader version:", self.shader_version.decode())
+        #print("Supported shader version:", self.shader_version.decode())
 
         # Create and compile the vertex shader
         vertex_shader = gl.glCreateShader(gl.GL_VERTEX_SHADER)
