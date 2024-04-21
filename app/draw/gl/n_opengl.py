@@ -5,6 +5,7 @@ import glfw
 from OpenGL.GL import *
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
+from app.draw.gl.calculator.n_numpy_calculator import NumpyCalculator
 from app.draw.gl.utils.c_color_theme import NColorTheme
 from app.draw.gl.n_lod import NLvlOfDetails, LodType
 from app.draw.gl.n_net import NNet
@@ -24,8 +25,8 @@ color_theme = NColorTheme()
 textures_factory = ImageTextureFactory()
 rgb_textures_factory = RGBGridTextureFactory(color_theme)
 
-calculator = OpenCLPositionsCalculator()
-n_net = NNet(n_window, color_theme)
+calculator = NumpyCalculator()
+n_net = NNet(n_window, color_theme, calculator)
 n_lod = NLvlOfDetails(n_net, n_window)
 n_tree = NTree(0)
 n_scene = NScene(n_lod, n_tree, n_net, n_window, rgb_textures_factory)
@@ -84,14 +85,15 @@ def on_viewport_updated():
 
 
 def create_level_of_details():
-
     # n_lod.add_level(LodType.STATIC_TEXTURE, 0.0, file_path="tiles/test2.png")
     # n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, file_path="tiles/test3.png")
-    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 15)
+    print("Creating level of details")
+    grid = n_net.grid.get_visible_area(0,0,n_net.grid_columns_count, n_net.grid_rows_count)
+    img_data, img_width, img_height = rgb_textures_factory.get_texture(grid, 25)
     n_lod.add_level(LodType.STATIC_TEXTURE, 0, img_data=img_data, img_width=img_width, img_height=img_height)
-    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 10)
+    img_data, img_width, img_height = rgb_textures_factory.get_texture(grid, 15)
     n_lod.add_level(LodType.STATIC_TEXTURE, 0.01, img_data=img_data, img_width=img_width, img_height=img_height)
-    img_data, img_width, img_height = rgb_textures_factory.get_texture(n_net.grid, 5)
+    img_data, img_width, img_height = rgb_textures_factory.get_texture(grid, 10)
     n_lod.add_level(LodType.STATIC_TEXTURE, 0.05, img_data=img_data, img_width=img_width, img_height=img_height)
     n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.08, texture_factor=1)
     n_lod.add_level(LodType.MEGA_LEAF_VERTICES, 0.3, texture_factor=1)
@@ -115,24 +117,17 @@ def main():
     model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
     # model_name = "your-llm-model-name"  # Replace with the name or path of your LLM model
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
-
-    # Get a list of all layers and parameters
     all_layers_and_parameters = list(model.named_parameters())
+    tensors = [tensor for name, tensor in all_layers_and_parameters]
+    #n_net.init_from_size(tensors)
+    n_net.init_from_tensors(tensors)
 
-    tmp_layers = []
-    for name, tensor in all_layers_and_parameters:
-        #print("layer name", tensor)
-        tmp_layers.append(tensor.numel())
-    #
-    # grid_X, grid_y, grid_size = calculator.calculate_positions(14000000)
-    # print("Shader result: ", grid_X, grid_y, grid_size)
     # Init net
-    n_net.init(10000000, [100000000, 14000000, 1004000])
-    #n_net.init(tmp_layers[0], tmp_layers[1:])
+    #n_net.init_from_size([10000000, 100000000, 14000000, 1004000])
+    # n_net.init(tmp_layers[0], tmp_layers[1:])
     # generate nodes grid
-    n_net.generate_net(calculator)
+    n_net.generate_net()
     # update tree size and depth using grid size
     n_tree.set_size(n_net.total_width, n_net.total_height)
     # n_tree.load_net_size()

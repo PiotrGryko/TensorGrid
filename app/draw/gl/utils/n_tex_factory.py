@@ -57,8 +57,8 @@ class RGBGridTextureFactory(NTexFactory):
         image = Image.fromarray(normalized_data)
 
         image_rgba = image.convert('RGBA').resize((image_width, image_height))
-        image_rgba_flipped = image_rgba.transpose(Image.FLIP_TOP_BOTTOM)
-        sharpened_image = image_rgba_flipped.filter(ImageFilter.SHARPEN)
+        #image_rgba_flipped = image_rgba.transpose(Image.FLIP_TOP_BOTTOM)
+        sharpened_image = image_rgba.filter(ImageFilter.SHARPEN)
 
         # Get the raw pixel data as a numpy array
         image_data = np.array(sharpened_image)

@@ -40,6 +40,10 @@ class NColorTheme:
                              'twilight_shifted_r', 'viridis', 'viridis_r', 'winter', 'winter_r']
 
         random_cmap = random.choice(self.cmap_options)
+        random_cmap2 = random.choice(self.cmap_options)
         print("Color option:", random_cmap)
+        print("Color option 2:", random_cmap2)
+
         self.cmap = plt.cm.get_cmap(random_cmap)
+        self.cmap2 = plt.cm.get_cmap(random_cmap2)
         self.color_low = self.cmap(-1)

@@ -1,6 +1,8 @@
 import OpenGL.GL as gl
 import numpy as np
 
+from app.draw.gl.calculator.base_calculator import BaseCalculator
+
 compute_shader_source_square = """
 #version 450 core
 
@@ -42,12 +44,20 @@ void main() {
 """
 
 
-class NPositionsCalculator:
-
+class NPositionsCalculator(BaseCalculator):
+    """
+    TO DO !
+    """
     def __init__(self):
         self.compute_program = None
 
-    def compile_square_shader_program(self):
+    def cleanup(self):
+        pass
+
+    def measure(self, elements_count):
+        pass
+
+    def init(self):
         self.compile_compute_shader(compute_shader_source_square)
 
     def compile_compute_shader(self, compute_shader_source):
@@ -88,9 +98,8 @@ class NPositionsCalculator:
         gl.glUnmapBuffer(gl.GL_SHADER_STORAGE_BUFFER)
         return data
 
-    def calculate_positions(self, size):
+    def calculate_positions(self, size, start_index, end_index):
         # Setup position data (even if it's not fully used for now)
-
 
         # Set the uniform for number of elements
         gl.glUniform1i(gl.glGetUniformLocation(self.compute_program, "numElements"), size)
