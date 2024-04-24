@@ -14,6 +14,7 @@ def unpack_shape(array):
         return (shape[0], 1)  # or (shape[0], 1) if you prefer to treat it as a single column with many rows
     return shape
 
+
 class Grid:
     def __init__(self):
         # Store subgrids with their offsets as keys (row_offset, column_offset)
@@ -33,6 +34,16 @@ class Grid:
             return False
         return True
 
+    def get_visible_layers(self, x1, y1, x2, y2):
+        visible_layers = []
+        for sublayer in self.layers:
+            grid_x1 = sublayer.column_offset
+            grid_y1 = sublayer.row_offset
+            grid_x2 = grid_x1 + sublayer.columns_count
+            grid_y2 = grid_y1 + sublayer.rows_count
+            if self.rectangles_intersect(x1, y1, x2, y2, grid_x1, grid_y1, grid_x2, grid_y2):
+                visible_layers.append(sublayer)
+        return visible_layers
 
     def get_visible_area(self, x1, y1, x2, y2):
 
@@ -73,8 +84,7 @@ class Grid:
 
 class Layer:
     def __init__(self, layer_grid):
-        #layer_grid =  np.random.uniform(0, 1, (150, 3900)).astype(np.float32)
-
+        # layer_grid =  np.random.uniform(0, 1, (150, 3900)).astype(np.float32)
 
         self.column_offset = 0
         self.row_offset = 0
@@ -82,15 +92,15 @@ class Layer:
         self.rows_count, self.columns_count = unpack_shape(self.layer_grid)
         self.size = self.layer_grid.size
 
-        #print(self.layer_grid.shape, self.unpack_shape(self.layer_grid))
+        # print(self.layer_grid.shape, self.unpack_shape(self.layer_grid))
         self.layer_grid = np.clip(self.layer_grid * 50, 0, 1)
-        #self.layer_grid[:] = 1
-
-
+        # self.layer_grid[:] = 1
+        self.id = None
 
     def define_layer_offset(self, column_offset, row_offset):
         self.column_offset = column_offset
         self.row_offset = row_offset
+        self.id = f"{self.column_offset}-{self.row_offset}-{self.columns_count}-{self.rows_count}-{self.size}"
 
 
 class NNet:
@@ -104,11 +114,13 @@ class NNet:
         self.total_width = 0
         self.total_height = 0
         self.total_size = 0
-        #self.grid = None
+        # self.grid = None
         self.node_gap_x = 0.2  # 100 / self.n_window.width * 2.0
         self.node_gap_y = 0.2  # 100 / self.n_window.width * 2.0
         self.default_value = -2
         self.grid = Grid()
+
+        self.visible_layers = []
 
     def init_from_size(self, all_layers_sizes):
         print("Init net from sizes")
@@ -167,48 +179,33 @@ class NNet:
         self.total_width = self.grid_columns_count * self.node_gap_x
         self.total_height = self.grid_rows_count * self.node_gap_y
         self.total_size = sum([l.size for l in self.layers])
-        print(f"Creating empty grid of size: {self.grid_rows_count}x{self.grid_columns_count}")
-        #self.grid = np.full((self.grid_rows_count, self.grid_columns_count), self.default_value).astype(np.float16)
-        print("Net initialized", time.time() - start_time,
-              #"grid",self.grid,
+        print(f"Grid dimmensions: {self.grid_rows_count}x{self.grid_columns_count}")
+        self.grid.add_layers(self.layers)
+        # self.grid = np.full((self.grid_rows_count, self.grid_columns_count), self.default_value).astype(np.float16)
+        print("Net initialized", time.time() - start_time, "s",
+              # "grid",self.grid,
               "total size: ", self.total_size,
               "node gaps: ", self.node_gap_x, self.node_gap_y)
 
-    def process_batch(self, sublayer, grid):
-        column_offset = sublayer.column_offset
-        row_offset = sublayer.row_offset
-        rows_count = sublayer.rows_count
-        columns_count = sublayer.columns_count
-        grid.add_subgrid(sublayer.layer_grid ,row_offset, column_offset)
-        #grid[row_offset:rows_count + row_offset, column_offset:columns_count + column_offset] = sublayer.layer_grid
+    def update_viewport(self, viewport):
+        x, y, w, h, zoom = viewport
+        x1 = x
+        y1 = y
+        x2 = x1 + w
+        y2 = y1 + h
 
-        #
-        # print("procesing")
-        # print("Column offset: ", column_offset)
-        # print("Row offset: ", row_offset)
-        # print("rows_count: ", rows_count)
-        # print("columns_count: ", columns_count)
-        # print("shape",grid.shape)
+        node_gap_x = self.node_gap_x
+        node_gap_y = self.node_gap_y
 
-    def generate_net(self):
-        print(f"Generate net")
-        print(f"Grid size, columns: {self.grid_columns_count} rows: {self.grid_rows_count}")
-        print("Size in Pixels", self.total_width, self.total_height)
-        start_time = time.time()
+        col_min = int(x1 / node_gap_x)
+        col_max = math.ceil(x2 / node_gap_x)
 
-        # executor = ThreadPoolExecutor()
-        # print("Batches count:", len(self.layers))
-        # futures = []
-        # for index, batch in enumerate(self.layers):
-        #     futures.append(executor.submit(self.process_batch, batch, self.grid))
-        #
-        # # Load the net and print progress bar
-        # for index, future in enumerate(as_completed(futures)):
-        #     print(f"\rLoading net: {int(100 * index / len(futures))}%", end="")
-        self.grid.add_layers(self.layers)
-        print(f"\rLoading net: 100%", end="\n")
+        row_min = int(y1 / node_gap_y)
+        row_max = math.ceil(y2 / node_gap_y)
+        visible = self.grid.get_visible_layers(col_min, row_min, col_max, row_max)
 
-        print("Net generated", time.time() - start_time)
+        if visible != self.visible_layers:
+            self.visible_layers = visible
 
     def get_subgrid(self, x1, y1, x2, y2):
         node_gap_x = self.node_gap_x
@@ -219,13 +216,15 @@ class NNet:
 
         row_min = int(y1 / node_gap_y)
         row_max = math.ceil(y2 / node_gap_y)
-        #subgrid = self.grid[row_min:row_max, col_min:col_max]
+        # subgrid = self.grid[row_min:row_max, col_min:col_max]
 
-        subgrid = self.grid.get_visible_area(col_min,row_min, col_max,row_max)
+        subgrid = self.grid.get_visible_area(col_min, row_min, col_max, row_max)
 
         return subgrid
 
-    def get_positions_grid(self, x1, y1, x2, y2):
+    def get_positions_grid(self, x1, y1, x2, y2, factor=1):
+        if factor < 1:
+            raise "Factor <1 !"
         start_time = time.time()
         node_gap_x = self.node_gap_x
         node_gap_y = self.node_gap_y
@@ -235,14 +234,15 @@ class NNet:
 
         row_min = int(y1 / node_gap_y)
         row_max = math.ceil(y2 / node_gap_y)
-        #subgrid = self.grid[row_min:row_max, col_min:col_max]
+        # subgrid = self.grid[row_min:row_max, col_min:col_max]
 
-        subgrid = self.grid.get_visible_area(col_min,row_min, col_max,row_max)
+        subgrid = self.grid.get_visible_area(col_min, row_min, col_max, row_max)
+        subgrid = subgrid[::factor, ::factor]
 
         indices = np.where(subgrid != self.default_value)
         rows, columns = indices
-        columns = columns + col_min
-        rows = rows + row_min
+        columns = (columns * factor) + col_min
+        rows = (rows * factor) + row_min
         rows_pos = rows * node_gap_y
         columns_pos = columns * node_gap_x
 

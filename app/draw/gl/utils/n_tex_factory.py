@@ -8,6 +8,8 @@ import scipy
 from PIL import Image, ImageFilter
 from matplotlib import pyplot as plt
 
+from app.draw.gl.n_net import unpack_shape
+
 
 class NTexFactory:
 
@@ -44,13 +46,15 @@ class RGBGridTextureFactory(NTexFactory):
 
     def get_texture(self, data_grid, level=1):
         start_time = time.time()
-
         new_grid = data_grid
         grid_factor = level
-        new_grid = new_grid[::grid_factor, ::grid_factor]
+        if len(new_grid.shape) == 1:
+            new_grid = new_grid[::grid_factor]
+        else:
+            new_grid = new_grid[::grid_factor, ::grid_factor]
         # new_grid = self.scale_down_and_average(new_grid)
 
-        image_height, image_width = self.scale_down_dimensions(new_grid.shape)
+        image_height, image_width = self.scale_down_dimensions(unpack_shape(new_grid))
         # Normalize the grid data to [0, 255] range
         cmap_rbga = self.color_theme.cmap(new_grid)
         normalized_data = (cmap_rbga * 255).astype(np.uint8)
@@ -63,8 +67,8 @@ class RGBGridTextureFactory(NTexFactory):
         # Get the raw pixel data as a numpy array
         image_data = np.array(sharpened_image)
 
-        print("Texture generated", time.time() - start_time, "width", image_width, "height", image_height, "factor",
-              grid_factor)
+        # print("Texture generated", time.time() - start_time, "width", image_width, "height", image_height, "factor",
+        #       grid_factor)
         return image_data, image_width, image_height
 
     def scale_down_dimensions(self, shape, max_size=(16096, 16096)):

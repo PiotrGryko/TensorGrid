@@ -56,6 +56,8 @@ class NTree(BSPTree):
         level = max([v.level for v in self.visible_leafs])
 
         if self.mega_leaf is None or not self.mega_leaf.contains(x1, y1, x2, y2, level):
-            self.mega_leaf = NTreeLeaf(x1, y1, x2 - x1, y2 - y1, level)
-            # print("Mega leaf updated", self.mega_leaf)
+            w = x2 - x1
+            h = y2 - y1
+            self.mega_leaf = NTreeLeaf(x1, y1, w, h, level)
+            #print("Mega leaf updated", self.mega_leaf, level)
             # print("Mega leaf updated2 ", self.mega_leaf.dump())
