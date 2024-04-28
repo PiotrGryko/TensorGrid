@@ -140,6 +140,17 @@ class Material:
         self.image_height = None
         self.fbo = None
 
+    def create_pbo(self, img_data):
+        # Generate a buffer ID for the PBO
+        pbo = gl.glGenBuffers(1)
+        # Bind the PBO to the PIXEL_UNPACK_BUFFER target
+        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, pbo)
+        # Allocate memory for the PBO and initialize it with image data
+        gl.glBufferData(gl.GL_PIXEL_UNPACK_BUFFER, img_data.nbytes, img_data, gl.GL_STREAM_DRAW)
+        # Unbind the PBO from the PIXEL_UNPACK_BUFFER target
+        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, 0)
+        return pbo
+
     def from_file(self, filepath):
 
         image = Image.open(filepath)
@@ -156,6 +167,9 @@ class Material:
         self.image_width = image_width
         self.image_height = image_height
         self.texture = gl.glGenTextures(1)
+
+        pbo = self.create_pbo(img_data)
+
         if material_id == 1:
             gl.glActiveTexture(gl.GL_TEXTURE0)
         elif material_id == 2:
@@ -166,12 +180,21 @@ class Material:
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
 
+        # Bind the PBO to load texture data
+        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, pbo)
+        # Load texture data from PBO
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE,
-                        img_data)
+                        None)
+        # Loading texture directly:
+        # gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE,
+        #                 img_data)
+        # Unbind the PBO
+        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, 0)
+
         error = gl.glGetError()
         if error != gl.GL_NO_ERROR:
             print(f"Error loading texture: {error}")
-        gl.glGenerateMipmap(gl.GL_TEXTURE_2D)
+        #gl.glGenerateMipmap(gl.GL_TEXTURE_2D)
         error = gl.glGetError()
         if error != gl.GL_NO_ERROR:
             print(f"Error generating mipmap texture: {error}")

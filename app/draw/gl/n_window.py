@@ -24,6 +24,7 @@ class NWindow:
         self.zoom_percent = 0
 
         self.n_vertices_shader = NShader()
+        self.n_colors_shader = NShader()
         self.n_material_one_shader = NShader()
         self.n_material_two_shader = NShader()
 
@@ -34,7 +35,7 @@ class NWindow:
         min_zoom_y = h / content_height / 1.2
         self.min_zoom = min_zoom_x if min_zoom_x < min_zoom_y else min_zoom_y
         self.zoom_factor = self.min_zoom  # current zoom value
-        self.zoom_step = (self.max_zoom - self.min_zoom) / 4000  # zoom step change on every mouse wheel scroll
+        self.zoom_step = (self.max_zoom - self.min_zoom) / 10000  # zoom step change on every mouse wheel scroll
         self.mouse_scroll_callback(self.window, 1, 1)
         print(w, h, content_width, content_height)
         print("Min zoom calculated:", self.min_zoom, self.max_zoom, self.zoom_step)
@@ -46,6 +47,7 @@ class NWindow:
         # Set GLFW context hints
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
         glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
+        glfw.window_hint(glfw.SAMPLES,4)
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
         glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, glfw.TRUE)
         glfw.window_hint(glfw.RESIZABLE, gl.GL_TRUE)
@@ -91,7 +93,11 @@ class NWindow:
         sy = y / self.height * 2.0
         return sx, sy
 
+
     def viewport_to_world_cords(self):
+        '''
+        :return: current viewport in world coordinates
+        '''
         # Window bottom left
         x1, y1 = self.projection.window_to_world_point(-1, -1)
         # Window top right
@@ -100,6 +106,9 @@ class NWindow:
         return (x1, y1, w, h, self.zoom_factor)
 
     def world_coords_to_screen_coords(self, x1, y1, x2, y2):
+        '''
+        :return: world coordinates (for example x5400:y1300) to screen coords (-1, -1 top left corner, 1,1 top right corner)
+        '''
         # Window bottom left
         sx1, sy1 = self.projection.world_to_window_point(x1, y1)
         # Window top right
@@ -108,6 +117,9 @@ class NWindow:
         return (sx1, sy1, sx2, sy2, self.zoom_factor)
 
     def screen_coords_to_window_coords(self, x1, y1, x2, y2):
+        '''
+        :return:  screen coordinates (-1, -1 top left corner, 1,1 top right corner) to window coordinates (0,0 top left, 1280,1280 top right)
+        '''
         sx1 = (x1 + 1) * self.width / 2.0
         sy1 = (y1 + 1) * self.height / 2.0
         sx2 = (x2 + 1) * self.width / 2.0

@@ -1,4 +1,5 @@
 import random
+import time
 
 import numpy as np
 
@@ -20,16 +21,23 @@ class NEntity:
         self.nodes = []
         self.material_to_texture_map = {}
 
+        self.colors_attached = False
+        self.positions_and_colors = []
+
         self.data = None
 
-    def create_nodes_view(self, n_net, factor):
-        positions, colors = n_net.get_positions_grid(self.x1, self.y1, self.x2, self.y2, factor=factor)
-        flat_array = np.reshape(positions, (-1, 2))
-        self.nodes = flat_array
-        if len(self.nodes) == 0:
-            return
-        # print("Nodes created ", self.level)
-        self.n_vertex.create_nodes(self.nodes, colors)
+    def has_texture_attached(self, material_id, factor):
+        return (material_id in self.material_to_texture_map
+                and self.material_to_texture_map[material_id][1] == factor)
+
+    def create_texture(self, img_data, img_width, img_height, material_id, factor):
+        tex = NTexture()
+        tex.create_from_data(self.x1, self.y1, self.x2, self.y2,
+                             img_data,
+                             img_width,
+                             img_height,
+                             material_id=material_id)
+        self.material_to_texture_map[material_id] = (tex, factor)
 
     def create_fbo_texture(self, n_net, n_window, material_id, factor):
         if material_id in self.material_to_texture_map:
@@ -42,29 +50,26 @@ class NEntity:
         tex.create_from_fbo(self.n_vertex, n_window, self.x1, self.y1, self.x2, self.y2, material_id=material_id)
         self.material_to_texture_map[material_id] = (tex, factor)
 
-    def create_texture(self, np_array, textures_factory, material_id, factor):
-        img_data, img_width, img_height = textures_factory.get_texture(np_array, factor)
-        tex = NTexture()
-        tex.create_from_data(self.x1, self.y1, self.x2, self.y2,
-                             img_data,
-                             img_width,
-                             img_height,
-                             material_id=material_id)
-        self.material_to_texture_map[material_id] = (tex, factor)
-
     def create_background_view(self):
         self.n_vertex.create_plane(self.x1, self.y1, self.x2, self.y2, self.color)
 
-    def draw_texture(self, np_array, textures_factory, material_id, factor):
-        if material_id not in self.material_to_texture_map:
-            self.create_texture(np_array, textures_factory, material_id, factor)
-        if material_id in self.material_to_texture_map:
-            texture, tex_factor = self.material_to_texture_map[material_id]
-            if tex_factor != factor:
-                self.create_texture(np_array, textures_factory, material_id, factor)
-            texture.draw()
+    def create_colors_grid(self, positions_and_colors):
+        start_time = time.time()
+        self.positions_and_colors = positions_and_colors
+        self.n_vertex.create_color_grid(self.positions_and_colors)
+        self.colors_attached = True
+        print("color vertex created", time.time() - start_time)
 
-    def draw_fbo_texture(self, material_id):
+    def create_nodes_view(self, n_net, factor):
+        positions, colors = n_net.get_positions_grid(self.x1, self.y1, self.x2, self.y2, factor=factor)
+        flat_array = np.reshape(positions, (-1, 2))
+        self.nodes = flat_array
+        if len(self.nodes) == 0:
+            return
+        # print("Nodes created ", self.level)
+        self.n_vertex.create_nodes(self.nodes, colors)
+
+    def draw_texture(self, material_id):
         if material_id in self.material_to_texture_map:
             texture, tex_factor = self.material_to_texture_map[material_id]
             texture.draw()
@@ -80,3 +85,8 @@ class NEntity:
             self.background_attached = True
             self.create_background_view()
         self.n_vertex.draw_plane()
+
+    def draw_colors_grid(self):
+        if not self.colors_attached:
+            return
+        self.n_vertex.draw_colors()

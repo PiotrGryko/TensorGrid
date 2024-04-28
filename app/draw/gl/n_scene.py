@@ -12,9 +12,10 @@ class NScene:
         self.textures_factory = textures_factory
 
         self.visible_entities = {}
+
         self.mega_entity = {}
-        self.all_layers_entities = {}
         self.visible_layers_entities = {}
+        self.cache = {}
 
     def _create_layer_entity(self, layer):
         x1 = layer.column_offset * self.n_net.node_gap_x
@@ -26,20 +27,6 @@ class NScene:
         return entity
 
     def update_scene_entities(self):
-        # All layers entities
-        all_layers = {obj.id: obj for obj in self.n_net.layers}
-        all_layers_keys = set(all_layers.keys())
-        all_current_layers_keys = set(self.all_layers_entities.keys())
-        all_keys_to_remove = all_current_layers_keys - all_layers_keys
-        all_keys_to_add = all_layers_keys - all_current_layers_keys
-
-        for key in all_keys_to_remove:
-            del self.all_layers_entities[key]
-        for key in all_keys_to_add:
-            layer = all_layers[key]
-            entity = self._create_layer_entity(layer)
-            self.all_layers_entities[key] = entity
-
         # Visible layers entities
         visible_layers = {obj.id: obj for obj in self.n_net.visible_layers}
         visible_layers_keys = set(visible_layers.keys())
@@ -48,11 +35,15 @@ class NScene:
         visible_keys_to_add = visible_layers_keys - visible_current_layers_keys
 
         for key in visible_keys_to_remove:
+            #self.cache[key] = self.visible_layers_entities[key]
             del self.visible_layers_entities[key]
         for key in visible_keys_to_add:
-            layer = visible_layers[key]
-            entity = self._create_layer_entity(layer)
-            self.visible_layers_entities[key] = entity
+            if key in self.cache:
+                self.visible_layers_entities[key] = self.cache[key]
+            else:
+                layer = visible_layers[key]
+                entity = self._create_layer_entity(layer)
+                self.visible_layers_entities[key] = entity
 
         # Tree leaves entities
         leaves = {obj.id: obj for obj in self.n_tree.visible_leafs}
@@ -64,13 +55,17 @@ class NScene:
 
         # Perform removal
         for key in keys_to_remove:
+            self.cache[key] = self.visible_entities[key]
             del self.visible_entities[key]
 
         # Perform addition
         for key in keys_to_add:
-            leaf = leaves[key]
-            entity = NEntity(leaf.x1, leaf.y1, leaf.x2, leaf.y2)
-            self.visible_entities[key] = entity
+            if key in self.cache:
+                self.visible_entities[key] = self.cache[key]
+            else:
+                leaf = leaves[key]
+                entity = NEntity(leaf.x1, leaf.y1, leaf.x2, leaf.y2)
+                self.visible_entities[key] = entity
 
         if self.n_tree.mega_leaf is not None:
             leaf = self.n_tree.mega_leaf
@@ -79,6 +74,7 @@ class NScene:
                 self.mega_entity = {leaf_id: NEntity(leaf.x1, leaf.y1, leaf.x2, leaf.y2)}
 
     def draw_vertices_level(self, lod):
+
         if lod.lod_type == LodType.LEAFS_VERTICES:
             for key, entity in self.visible_entities.items():
                 entity.draw_vertices(self.n_net, lod.texture_factor)
@@ -91,38 +87,78 @@ class NScene:
         if lod.lod_type == LodType.MEGA_LEAF_VERTICES_TO_TEXTURE:
             for key, entity in self.mega_entity.items():
                 entity.create_fbo_texture(self.n_net, self.n_window, lod.material_id, lod.texture_factor)
+        if lod.lod_type == LodType.LEAFS_COLORS:
+            for key, entity in self.visible_entities.items():
+                self.attach_leaf_colors_grid(entity)
+                entity.draw_colors_grid()
+
+    def attach_leaf_texture(self, entity, lod):
+        if not entity.has_texture_attached(lod.material_id, lod.texture_factor):
+            (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
+                                                                                            entity.x2, entity.y2)
+            (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
+            target_width = wx2 - wx1
+            target_height = wy2 - wy1
+            subgrid = self.n_net.get_subgrid(entity.x1, entity.y1, entity.x2, entity.y2)
+            img_data, img_width, img_height = self.textures_factory.get_texture_data(subgrid, lod.texture_factor,
+                                                                                     target_width, target_height)
+            entity.create_texture(img_data, img_width, img_height, lod.material_id, lod.texture_factor)
+
+    def attach_layer_texture(self, entity, lod, data):
+        if not entity.has_texture_attached(lod.material_id, lod.texture_factor):
+            (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
+                                                                                            entity.x2, entity.y2)
+            (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
+            target_width = wx2 - wx1
+            target_height = wy2 - wy1
+            img_data, img_width, img_height = self.textures_factory.get_texture_data(data, lod.texture_factor,
+                                                                                     target_width, target_height)
+            entity.create_texture(img_data, img_width, img_height, lod.material_id, lod.texture_factor)
+
+    def attach_leaf_colors_grid(self, entity):
+        if not entity.colors_attached:
+            (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
+                                                                                            entity.x2, entity.y2)
+            (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
+            target_width = wx2 - wx1
+            target_height = wy2 - wy1
+            positions_and_colors = self.n_net.get_positions_and_colors_array(entity.x1, entity.y1, entity.x2, entity.y2,
+                                                                             target_width, target_height)
+            entity.create_colors_grid(positions_and_colors)
 
     def draw_texture_level(self, lod):
         if lod.lod_type == LodType.STATIC_TEXTURE:
             lod.texture.draw()
         if lod.lod_type == LodType.LEAFS_TEXTURES:
             for key, entity in self.visible_entities.items():
-                subgrid = self.n_net.get_subgrid(entity.x1, entity.y1, entity.x2, entity.y2)
-                entity.draw_texture(subgrid, self.textures_factory, lod.material_id, lod.texture_factor)
+                self.attach_leaf_texture(entity, lod)
+                entity.draw_texture(lod.material_id)
         if lod.lod_type == LodType.LEAFS_VERTICES_TO_TEXTURE:
             for key, entity in self.visible_entities.items():
-                entity.draw_fbo_texture(lod.material_id)
+                entity.draw_texture(lod.material_id)
         if lod.lod_type == LodType.MEGA_LEAF_TEXTURE:
             for key, entity in self.mega_entity.items():
-                subgrid = self.n_net.get_subgrid(entity.x1, entity.y1, entity.x2, entity.y2)
-                entity.draw_texture(subgrid, self.textures_factory, lod.material_id, lod.texture_factor)
+                self.attach_leaf_texture(entity, lod)
+                entity.draw_texture(lod.material_id)
         if lod.lod_type == LodType.MEGA_LEAF_VERTICES_TO_TEXTURE:
             for key, entity in self.mega_entity.items():
-                entity.draw_fbo_texture(lod.material_id)
-        if lod.lod_type == LodType.ALL_LAYERS_TEXTURES:
-            for key, entity in self.all_layers_entities.items():
-                entity.draw_texture(entity.data, self.textures_factory, lod.material_id, lod.texture_factor)
+                entity.draw_texture(lod.material_id)
         if lod.lod_type == LodType.VISIBLE_LAYERS_TEXTURES:
             for key, entity in self.visible_layers_entities.items():
-                entity.draw_texture(entity.data, self.textures_factory, lod.material_id, lod.texture_factor)
+                self.attach_layer_texture(entity, lod, entity.data)
+                entity.draw_texture(lod.material_id)
 
-    def draw_scene(self, n_vertices_shader, n_material_one_shader, n_material_two_shader):
+    def draw_scene(self, n_vertices_shader, n_colors_shader,  n_material_one_shader, n_material_two_shader):
 
         self.update_scene_entities()
         # draw vertices
-        n_vertices_shader.use()
+
         current_level = self.n_lod.current_level
         prev_level = self.n_lod.prev_level
+        n_vertices_shader.use()
+        self.draw_vertices_level(current_level)
+
+        n_colors_shader.use()
         self.draw_vertices_level(current_level)
 
         # draw textures
@@ -135,16 +171,16 @@ class NScene:
             n_material_two_shader.update_fading_factor(1.0)
             self.draw_texture_level(current_level)
 
-        if prev_level is not None:
-            offset = self.n_lod.get_offset_from_previous_level()
-            if prev_level.material_id == 1:
-                n_material_one_shader.use()
-                n_material_one_shader.update_fading_factor(offset)
-                self.draw_texture_level(prev_level)
-            elif prev_level.material_id == 2:
-                n_material_two_shader.use()
-                n_material_two_shader.update_fading_factor(offset)
-                self.draw_texture_level(prev_level)
+        # if prev_level is not None:
+        #     offset = self.n_lod.get_offset_from_previous_level()
+        #     if prev_level.material_id == 1:
+        #         n_material_one_shader.use()
+        #         n_material_one_shader.update_fading_factor(offset)
+        #         self.draw_texture_level(prev_level)
+        #     elif prev_level.material_id == 2:
+        #         n_material_two_shader.use()
+        #         n_material_two_shader.update_fading_factor(offset)
+        #         self.draw_texture_level(prev_level)
 
     def draw_debug_tree(self):
         self.update_scene_entities()

@@ -2,7 +2,7 @@ import OpenGL.GL as gl
 
 # manage shaders
 
-# Vertex shader source code
+# Vertex shader source code for drawing nodes
 vertex_shader_source = """
 #version 330 core
 
@@ -27,7 +27,7 @@ void main()
 }
 """
 
-# Fragment shader source code for drawing vertices
+# Fragment shader source code for drawing nodes
 fragment_shader_source = """
 #version 330 core
 
@@ -57,9 +57,6 @@ uniform sampler2D tex2;
 
 
 uniform float fading_factor = 1.0f;
-uniform float alpha_factor = 1.0f;
-uniform bool tex2_enabled = true;
-
 
 void main()
 {
@@ -83,9 +80,6 @@ uniform sampler2D tex;
 
 
 uniform float fading_factor = 1.0f;
-uniform float alpha_factor = 1.0f;
-uniform bool tex2_enabled = true;
-
 
 void main()
 {
@@ -95,6 +89,38 @@ void main()
 }
 """
 
+color_grid_vertex_shader_source = """
+#version 330 core
+
+layout(location = 0) in vec3 vertexPosition; // x, y for position, z for color scaling
+uniform mat4 projection_matrix;
+uniform vec3 color_map;
+out float color_value;
+
+void main() {
+    gl_Position = projection_matrix * vec4(vertexPosition.xy, 0.0, 1.0);
+    gl_PointSize = 10.0;
+    color_value = vertexPosition.z; // Pass the color scaling value to the fragment shader
+
+}
+"""
+
+
+color_grid_fragment_shader_source = """
+#version 330 core
+
+uniform vec3 color_map;
+in float color_value;
+out vec4 fragColor;
+
+void main() {
+    vec3 scaledColor = color_map * color_value; 
+    fragColor = vec4(scaledColor, 1.0);
+    // fragColor = vec4(color_value, 0.0, 0.0, 1.0); // Apply the colorValue to red channel
+    // fragColor = vec4(1.0, 1.0, 1.0, 1.0); // Set the fragment color to solid white
+
+}
+"""
 
 class NShader:
     def __init__(self):
@@ -117,19 +143,15 @@ class NShader:
         fading_factor = gl.glGetUniformLocation(self.shader_program, "fading_factor")
         gl.glUniform1f(fading_factor, factor)
 
-    def update_alpha_factor(self, factor):
-        fading_factor = gl.glGetUniformLocation(self.shader_program, "alpha_factor")
-        gl.glUniform1f(fading_factor, factor)
-
-    def set_tex2_enabled(self, enabled):
-        tex2_enabled = gl.glGetUniformLocation(self.shader_program, "tex2_enabled")
-        gl.glUniform1f(tex2_enabled, enabled)
+    def update_color_map(self, cmap):
+        base_color_location = gl.glGetUniformLocation(self.shader_program, "color_map")
+        gl.glUniform3f(base_color_location, cmap[0],cmap[1],cmap[2])
 
     def compile_vertices_program(self):
         self.compile(vertex_shader_source, fragment_shader_source)
 
-    # def compile_textures_program(self):
-    #     self.compile(vertex_shader_source, texture_fragment_shader_source_test)
+    def compile_color_grid_program(self):
+        self.compile(color_grid_vertex_shader_source, color_grid_fragment_shader_source)
 
     def compile_textures_material_one_program(self):
         self.compile(vertex_shader_source, texture_fragment_shader_material_one)

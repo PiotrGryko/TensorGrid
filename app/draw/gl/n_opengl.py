@@ -47,7 +47,7 @@ def render():
     elapsed_time = time.time() - start_time
     if elapsed_time > 1.0:  # Update FPS every second
         fps = frame_count / elapsed_time
-        if fps < 60:
+        if fps < 80:
             fps_text = f"FPS: {fps:.2f}"
             frame_count = 0
             start_time = time.time()
@@ -70,21 +70,26 @@ def render():
         n_window.n_material_two_shader.update_projection(n_window.get_projection_matrix())
     else:
 
-        n_lod.load_current_level()
-        n_scene.draw_scene(
-            n_window.n_vertices_shader,
-            n_window.n_material_one_shader,
-            n_window.n_material_two_shader
-        )
-
         n_window.n_vertices_shader.use()
         n_window.n_vertices_shader.update_projection(n_window.get_projection_matrix())
+
+        n_window.n_colors_shader.use()
+        n_window.n_colors_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_colors_shader.update_color_map(color_theme.get_rgb())
 
         n_window.n_material_one_shader.use()
         n_window.n_material_one_shader.update_projection(n_window.get_projection_matrix())
 
         n_window.n_material_two_shader.use()
         n_window.n_material_two_shader.update_projection(n_window.get_projection_matrix())
+
+        n_lod.load_current_level()
+        n_scene.draw_scene(
+            n_window.n_vertices_shader,
+            n_window.n_colors_shader,
+            n_window.n_material_one_shader,
+            n_window.n_material_two_shader
+        )
 
     glfw.swap_buffers(n_window.window)
 
@@ -106,12 +111,19 @@ def create_level_of_details():
     # img_data, img_width, img_height = rgb_textures_factory.get_texture(grid, 25)
     #n_lod.add_level(LodType.STATIC_TEXTURE, 0.0, img_data=img_data, img_width=img_width, img_height=img_height)
 
-    n_lod.add_level(LodType.ALL_LAYERS_TEXTURES, 0.0, texture_factor=10)
-    n_lod.add_level(LodType.VISIBLE_LAYERS_TEXTURES, 0.001, texture_factor=5)
-    n_lod.add_level(LodType.LEAFS_TEXTURES, 0.01, texture_factor=3)
-    n_lod.add_level(LodType.MEGA_LEAF_TEXTURE, 0.02, texture_factor=1)
-    n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
-    n_lod.add_level(LodType.LEAFS_VERTICES_TO_TEXTURE, 0.07, texture_factor=1)
+    n_lod.add_level(LodType.VISIBLE_LAYERS_TEXTURES, 0.0, texture_factor=10)
+    n_lod.add_level(LodType.LEAFS_COLORS, 0.0001, texture_factor=3)
+    n_lod.add_level(LodType.LEAFS_COLORS, 0.0003, texture_factor=2)
+    n_lod.add_level(LodType.VISIBLE_LAYERS_TEXTURES, 0.0005, texture_factor=1)
+
+    n_lod.add_level(LodType.LEAFS_COLORS, 0.001, texture_factor=4)
+
+    # n_lod.add_level(LodType.LEAFS_COLORS, 0.005, texture_factor=3)
+    # n_lod.add_level(LodType.LEAFS_TEXTURES, 0.01, texture_factor=2)
+    # n_lod.add_level(LodType.LEAFS_TEXTURES, 0.015, texture_factor=1)
+    # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
+    n_lod.add_level(LodType.LEAFS_VERTICES, 0.01, texture_factor=1)
+    n_lod.add_level(LodType.LEAFS_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
     n_lod.add_level(LodType.LEAFS_VERTICES, 0.1, texture_factor=1)
     n_lod.dump()
 
@@ -124,9 +136,13 @@ def main():
     glDepthMask(GL_FALSE)
     gl.glEnable(gl.GL_BLEND)
     gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+
+    gl.glEnable(gl.GL_MULTISAMPLE)
+
     version = glGetString(GL_VERSION)
     print(f"OpenGL version: {version.decode('utf-8')}")
     n_window.n_vertices_shader.compile_vertices_program()
+    n_window.n_colors_shader.compile_color_grid_program()
     n_window.n_material_one_shader.compile_textures_material_one_program()
     n_window.n_material_two_shader.compile_textures_material_two_program()
 

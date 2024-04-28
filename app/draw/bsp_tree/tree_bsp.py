@@ -144,9 +144,9 @@ class BSPLeaf:
             not_visible.append(self)
             return False
         # Is fully visible
-        # if is_fully_visible:
-        #     visible.append(self)
-        #     return True
+        if is_fully_visible:
+            visible.append(self)
+            return True
         # if contains_viewport:
         #     max_depth = self.level + 5
         # if max_depth is None:
@@ -154,7 +154,7 @@ class BSPLeaf:
         # if self.level == max_depth:
         #     visible.append(self)
         #     return True
-        if self.w < w/3 and is_visible:
+        if self.w < w/4 and self.h < h/4 and is_visible:
             visible.append(self)
             return True
         if not self.generated:

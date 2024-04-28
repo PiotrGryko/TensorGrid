@@ -11,8 +11,8 @@ class LodType(Enum):
     MEGA_LEAF_TEXTURE = 5,
     LEAFS_VERTICES_TO_TEXTURE = 6,
     MEGA_LEAF_VERTICES_TO_TEXTURE = 7
-    ALL_LAYERS_TEXTURES = 8
     VISIBLE_LAYERS_TEXTURES = 9
+    LEAFS_COLORS = 10,
 
 
 class Lod:
@@ -96,12 +96,11 @@ class NLvlOfDetails:
         elif lod_type == LodType.MEGA_LEAF_VERTICES_TO_TEXTURE:
             lod = Lod(level, LodType.MEGA_LEAF_VERTICES_TO_TEXTURE)
             lod.material_id = material_id
-        elif lod_type == LodType.ALL_LAYERS_TEXTURES:
-            lod = Lod(level, LodType.ALL_LAYERS_TEXTURES)
-            lod.material_id = material_id
         elif lod_type == LodType.VISIBLE_LAYERS_TEXTURES:
             lod = Lod(level, LodType.VISIBLE_LAYERS_TEXTURES)
             lod.material_id = material_id
+        elif lod_type == LodType.LEAFS_COLORS:
+            lod = Lod(level, LodType.LEAFS_COLORS)
         else:
             raise f"Unsupported lod type: {lod_type}"
         if texture_factor is not None:

@@ -17,6 +17,10 @@ class NVertex():
         self.plane_color_vbo = None
         self.plane_indices = []
 
+        self.colors_vao = None
+        self.colors_vbo = None
+        self.positions_and_colors = []
+
     def clean(self):
         gl.glDeleteBuffers(2, self.nodes_vbo)
         gl.glDeleteVertexArrays(1, self.nodes_vao)
@@ -35,6 +39,13 @@ class NVertex():
         gl.glBindVertexArray(self.plane_vao)
         # Draw the square
         gl.glDrawElements(gl.GL_TRIANGLES, len(self.plane_indices), gl.GL_UNSIGNED_INT, None)
+
+    def draw_colors(self):
+        if self.colors_vao is None:
+            return
+        gl.glBindVertexArray(self.colors_vao)
+        gl.glDrawArrays(gl.GL_POINTS, 0, len(self.positions_and_colors))  # or another appropriate draw call
+        gl.glBindVertexArray(0)
 
     def create_plane(self, x1, y1, x2, y2, color=(1.0, 0.0, 0.0)):
         # Define the vertices of the square
@@ -88,12 +99,11 @@ class NVertex():
         gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, ebo)
         gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, self.plane_indices.nbytes, self.plane_indices, gl.GL_STATIC_DRAW)
 
-    def create_nodes(self,positions, colors=None):
+    def create_nodes(self, positions, colors=None):
         # Vertex data for a single circle
         dx, dy = positions.shape
         radius = self.radius
         self.num_instances = dx
-
         if colors is not None:
             instance_colors = colors
         else:
@@ -143,3 +153,25 @@ class NVertex():
         gl.glVertexAttribPointer(2, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
         gl.glEnableVertexAttribArray(2)
         gl.glVertexAttribDivisor(2, 1)  # Set the instance data divisor
+
+    def create_color_grid(self, positions_and_colors):
+        self.positions_and_colors = positions_and_colors
+
+        # Vertex data for a single circle
+        # Create a VBO and upload the data
+        self.colors_vbo = gl.glGenBuffers(1)
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.colors_vbo)
+        gl.glBufferData(gl.GL_ARRAY_BUFFER, self.positions_and_colors.nbytes, self.positions_and_colors,
+                        gl.GL_STATIC_DRAW)
+
+        # Create a VAO
+        self.colors_vao = gl.glGenVertexArrays(1)
+        gl.glBindVertexArray(self.colors_vao)
+
+        # Enable the vertex attributes
+        gl.glEnableVertexAttribArray(0)  # We are using location 0 in the shader
+        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
+
+        # Don't forget to unbind the VAO and VBO when done setting them up
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)
+        gl.glBindVertexArray(0)
