@@ -48,6 +48,7 @@ class Grid:
     def get_visible_area(self, x1, y1, x2, y2):
 
         # Initialize the result array to the dimensions of the view area
+        # TODO: This can be optimized! Creating large grid can cause a hiccup
         result_grid = np.full((y2 - y1, x2 - x1), self.default_value, dtype=np.float32)
         # Iterate over each subgrid to check for intersections
         for sublayer in self.layers:
@@ -134,17 +135,12 @@ class Grid:
 
 class Layer:
     def __init__(self, layer_grid):
-        # layer_grid =  np.random.uniform(0, 1, (150, 3900)).astype(np.float32)
-
         self.column_offset = 0
         self.row_offset = 0
         self.layer_grid = layer_grid
         self.rows_count, self.columns_count = unpack_shape(self.layer_grid)
         self.size = self.layer_grid.size
-
-        # print(self.layer_grid.shape, self.unpack_shape(self.layer_grid))
         self.layer_grid = np.clip(self.layer_grid * 50, 0, 1)
-        # self.layer_grid[:] = 1
         self.id = None
 
     def define_layer_offset(self, column_offset, row_offset):
@@ -257,7 +253,7 @@ class NNet:
         if visible != self.visible_layers:
             self.visible_layers = visible
 
-    def get_subgrid(self, x1, y1, x2, y2):
+    def get_subgrid(self, x1, y1, x2, y2, target_width, target_height):
         node_gap_x = self.node_gap_x
         node_gap_y = self.node_gap_y
 
@@ -266,35 +262,18 @@ class NNet:
 
         row_min = int(y1 / node_gap_y)
         row_max = math.ceil(y2 / node_gap_y)
-        # subgrid = self.grid[row_min:row_max, col_min:col_max]
+
+        subgrid_width = col_max - col_min
+        subgrid_height = row_max - row_min
+
+        width_factor = max(int(subgrid_width / target_width), 1)
+        height_factor = max(int(subgrid_height / target_height), 1)
 
         subgrid = self.grid.get_visible_area(col_min, row_min, col_max, row_max)
-
+        subgrid = subgrid[::height_factor, ::width_factor]
         return subgrid
 
-    def get_positions_grid(self, x1, y1, x2, y2, factor=1):
-        if factor < 1:
-            raise "Factor <1 !"
-        start_time = time.time()
-        node_gap_x = self.node_gap_x
-        node_gap_y = self.node_gap_y
-
-        col_min = int(x1 / node_gap_x)
-        col_max = math.ceil(x2 / node_gap_x)
-
-        row_min = int(y1 / node_gap_y)
-        row_max = math.ceil(y2 / node_gap_y)
-
-        rows, columns, values = self.grid.get_visible_data_chunks(col_min, row_min, col_max, row_max, factor, factor)
-
-        rows_pos = rows * node_gap_y
-        columns_pos = columns * node_gap_x
-        positions = np.column_stack((columns_pos, rows_pos)).astype(np.float32)
-        color_values = self.color_theme.cmap(values).astype(np.float32)[:, :3]
-
-        return positions, color_values
-
-    def get_positions_and_colors_array(self, x1, y1, x2, y2, target_width, target_height):
+    def get_positions_and_values_array(self, x1, y1, x2, y2, target_width, target_height):
 
         start_time = time.time()
         node_gap_x = self.node_gap_x
@@ -319,7 +298,6 @@ class NNet:
                                                                   row_max,
                                                                   width_factor,
                                                                   height_factor)
-
         rows_pos = rows * node_gap_y
         columns_pos = columns * node_gap_x
 
@@ -330,5 +308,5 @@ class NNet:
         # Reshape to a 2D array where each row is [row_index, col_index, value]
         result_array = combined_array.reshape(-1, 3).astype(np.float32)
         # print(result_array)
-        print("colors generated", time.time() - start_time)
+        # print("colors generated", time.time() - start_time)
         return result_array

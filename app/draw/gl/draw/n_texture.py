@@ -1,8 +1,8 @@
-import ctypes
-
+import OpenGL.GL as gl
 import numpy as np
 from PIL import Image
-import OpenGL.GL as gl
+
+from app.draw.gl.n_net import unpack_shape
 
 
 class NTexture:
@@ -16,46 +16,43 @@ class NTexture:
             self.material_one = Material().from_file(filename)
         elif material_id == 2:
             self.material_two = Material().from_file(filename)
-        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0), material_id=material_id)
+        self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
 
-    def create_from_data(self, x1, y1, x2, y2, img_data, img_width, img_height, material_id=1):
+    def create_from_image_data(self, x1, y1, x2, y2, img_data, img_width, img_height, material_id=1):
         if material_id == 1:
             self.material_one = Material().from_image_data(img_data, img_width, img_height, material_id)
         elif material_id == 2:
             self.material_two = Material().from_image_data(img_data, img_width, img_height, material_id)
-        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0), material_id=material_id)
+        self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
 
-    def create_from_fbo(self, n_vertex, n_window, x1, y1, x2, y2, material_id=1):
-
+    def create_from_nodes_vertices(self, n_vertex, n_window, x1, y1, x2, y2, material_id=1):
         if material_id == 1:
-            self.material_one = Material().from_fbo(n_vertex, n_window, x1, y1, x2, y2, material_id)
+            self.material_one = Material().from_nodes_view(n_vertex, n_window, x1, y1, x2, y2, material_id)
         elif material_id == 2:
-            self.material_two = Material().from_fbo(n_vertex, n_window, x1, y1, x2, y2, material_id)
-        self.triangle = Triangle(x1, y1, x2, y2, color=(1.0, 1.0, 1.0),
-                                 material_id=material_id)
+            self.material_two = Material().from_nodes_view(n_vertex, n_window, x1, y1, x2, y2, material_id)
+        self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
 
-    def add_texture_from_object(self, material, material_id=1):
-        m = material
+    def create_from_floats_grid(self, x1, y1, x2, y2, grid, material_id=1):
         if material_id == 1:
-            self.material_one = Material().from_image_data(m.img_data, m.image_width, m.image_height, material_id)
+            self.material_one = Material().from_floats_grid(grid, material_id)
         elif material_id == 2:
-            self.material_two = Material().from_image_data(m.img_data, m.image_width, m.image_height, material_id)
+            self.material_two = Material().from_floats_grid(grid, material_id)
+        self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
 
     def draw(self):
         if self.material_one is None and self.material_two is None:
             return
         if self.material_one:
-            self.material_one.use_texture0()
+            self.material_one.use_texture1()
         elif self.material_two:
-            self.material_two.use_texture1()
+            self.material_two.use_texture2()
 
         gl.glBindVertexArray(self.triangle.vao)
-        # gl.glDrawArrays(gl.GL_TRIANGLES, 0, len(self.triangle.indices))
         gl.glDrawElements(gl.GL_TRIANGLES, len(self.triangle.indices), gl.GL_UNSIGNED_INT, None)
 
 
 class Triangle:
-    def __init__(self, x1, y1, x2, y2, color=(1.0, 0.0, 0.0), material_id=1):
+    def __init__(self, x1, y1, x2, y2, material_id=1):
         # x1, y1 = -0.5, -0.5
         # x2, y2 = 0.5, 0.5
 
@@ -64,15 +61,6 @@ class Triangle:
             x2, y1,  # Bottom-right
             x2, y2,  # Top-right
             x1, y2  # Top-left
-        ], dtype=np.float32)
-        r, g, b = color
-
-        # Define the colors for each vertex
-        self.colors = np.array([
-            r, g, b,  # Red
-            r, g, b,  # Green
-            r, g, b,  # Blue
-            r, g, b  # Yellow
         ], dtype=np.float32)
 
         self.tex_coords = np.array([
@@ -91,9 +79,6 @@ class Triangle:
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.vbo)
         gl.glBufferData(gl.GL_ARRAY_BUFFER, self.vertices.nbytes, self.vertices, gl.GL_STATIC_DRAW)
 
-        self.color_vbo = gl.glGenBuffers(1)
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.color_vbo)
-        gl.glBufferData(gl.GL_ARRAY_BUFFER, self.colors.nbytes, self.colors, gl.GL_STATIC_DRAW)
         #
         self.tex_vbo = gl.glGenBuffers(1)
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.tex_vbo)
@@ -108,19 +93,14 @@ class Triangle:
         gl.glEnableVertexAttribArray(0)
         gl.glVertexAttribPointer(0, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
 
-        # Bind the vertex buffer object (VBO) for colors
-        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.color_vbo)
-        gl.glEnableVertexAttribArray(1)
-        gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
-
         # # Bind the texture
         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, self.tex_vbo)
         if material_id == 1:
-            gl.glEnableVertexAttribArray(3)
-            gl.glVertexAttribPointer(3, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
+            gl.glEnableVertexAttribArray(1)
+            gl.glVertexAttribPointer(1, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
         elif material_id == 2:
-            gl.glEnableVertexAttribArray(4)
-            gl.glVertexAttribPointer(4, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
+            gl.glEnableVertexAttribArray(2)
+            gl.glVertexAttribPointer(2, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
 
         # Create and bind the element buffer object (EBO)
         ebo = gl.glGenBuffers(1)
@@ -154,8 +134,6 @@ class Material:
     def from_file(self, filepath):
 
         image = Image.open(filepath)
-        # image.show()
-
         img_data = np.array(image)
 
         image_width, image_height = image.width, image.height
@@ -171,9 +149,9 @@ class Material:
         pbo = self.create_pbo(img_data)
 
         if material_id == 1:
-            gl.glActiveTexture(gl.GL_TEXTURE0)
-        elif material_id == 2:
             gl.glActiveTexture(gl.GL_TEXTURE1)
+        elif material_id == 2:
+            gl.glActiveTexture(gl.GL_TEXTURE2)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
@@ -194,13 +172,29 @@ class Material:
         error = gl.glGetError()
         if error != gl.GL_NO_ERROR:
             print(f"Error loading texture: {error}")
-        #gl.glGenerateMipmap(gl.GL_TEXTURE_2D)
-        error = gl.glGetError()
-        if error != gl.GL_NO_ERROR:
-            print(f"Error generating mipmap texture: {error}")
+
         return self
 
-    def from_fbo(self, n_vertex, n_window, x1, y1, x2, y2, material_id):
+    def from_floats_grid(self, grid, material_id):
+        height, width = unpack_shape(grid)
+        self.texture = gl.glGenTextures(1)
+        if material_id == 1:
+            gl.glActiveTexture(gl.GL_TEXTURE1)
+        elif material_id == 2:
+            gl.glActiveTexture(gl.GL_TEXTURE2)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_R32F, width, height, 0, gl.GL_RED, gl.GL_FLOAT, grid)
+
+        error = gl.glGetError()
+        if error != gl.GL_NO_ERROR:
+            print(f"Error loading texture: {error}")
+        return self
+
+    def from_nodes_view(self, n_vertex, n_window, x1, y1, x2, y2, material_id):
         # Generate texture
         self.texture = gl.glGenTextures(1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
@@ -221,7 +215,7 @@ class Material:
         # print("Quad world coord ", x1, y1, x2, y2)
         # print("Quad scene coord (Normalized Device Coordinates (NDC))", sx1, sy1, sx2, sy2)
         # print("Quad window coord", wx1, wy1, wx2, wy2)
-        #print(viewport)
+        # print(viewport)
 
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA,
                         gl.GL_UNSIGNED_BYTE, None)
@@ -239,17 +233,17 @@ class Material:
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
         tile_projection_matrix = n_window.projection.get_projection_for_tile(sx1, sy1, sx2, sy2)
-        n_window.n_vertices_shader.update_projection(tile_projection_matrix)
+        n_window.n_nodes_shader.update_projection(tile_projection_matrix)
 
         # Activate the first texture unit and bind your texture
         if material_id == 1:
-            gl.glActiveTexture(gl.GL_TEXTURE0)
-        elif material_id == 2:
             gl.glActiveTexture(gl.GL_TEXTURE1)
+        elif material_id == 2:
+            gl.glActiveTexture(gl.GL_TEXTURE2)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
         # Your drawing code here
-        #n_vertex.draw_plane()
+        # n_vertex.draw_plane()
         n_vertex.draw_nodes()
 
         # # #
@@ -260,20 +254,20 @@ class Material:
         # image.save(f"tiles/output{int(image_width)}_{int(image_height)}.png")
 
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
-        n_window.n_vertices_shader.update_projection(n_window.projection.matrix)
+        n_window.n_nodes_shader.update_projection(n_window.projection.matrix)
 
         gl.glViewport(0, 0, viewport[2], viewport[3])
 
         return self
 
-    def use_texture0(self):
+    def use_texture1(self):
         # print("use texture 0")
-        gl.glActiveTexture(gl.GL_TEXTURE0)
+        gl.glActiveTexture(gl.GL_TEXTURE1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
-    def use_texture1(self):
+    def use_texture2(self):
         # print("use texture 1")
-        gl.glActiveTexture(gl.GL_TEXTURE1)
+        gl.glActiveTexture(gl.GL_TEXTURE2)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
     def destroy(self):

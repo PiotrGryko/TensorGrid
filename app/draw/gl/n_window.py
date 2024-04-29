@@ -23,10 +23,12 @@ class NWindow:
         self.viewport_updated_func = None
         self.zoom_percent = 0
 
-        self.n_vertices_shader = NShader()
+        self.n_nodes_shader = NShader()
         self.n_colors_shader = NShader()
         self.n_material_one_shader = NShader()
         self.n_material_two_shader = NShader()
+        self.n_colors_texture_material_one_shader = NShader()
+        self.n_colors_texture_material_two_shader = NShader()
 
     def calculate_min_zoom(self, n_net):
         content_width, content_height = n_net.total_width, n_net.total_height
@@ -156,7 +158,7 @@ class NWindow:
         self.on_viewport_updated()
 
         zoom_percent = self.zoom_factor / self.max_zoom
-        formatted = "{:.0%}".format(zoom_percent)
+        formatted = "{:.1%}".format(zoom_percent)
         if self.zoom_percent != formatted:
             self.zoom_percent = formatted
             print("zoom: ", formatted)

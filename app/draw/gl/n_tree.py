@@ -42,7 +42,7 @@ class NTree(BSPTree):
         if visible != self.visible_leafs:
             # print("Visible count: ", len(visible))
             self.visible_leafs = visible
-            self.build_mega_leaf()
+            #self.build_mega_leaf()
 
     def build_mega_leaf(self):
         if len(self.visible_leafs) == 0:

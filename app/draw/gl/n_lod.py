@@ -5,14 +5,12 @@ from app.draw.gl.draw.n_texture import NTexture
 
 class LodType(Enum):
     STATIC_TEXTURE = 1
-    LEAFS_VERTICES = 2
-    LEAFS_TEXTURES = 3,
-    MEGA_LEAF_VERTICES = 4
-    MEGA_LEAF_TEXTURE = 5,
-    LEAFS_VERTICES_TO_TEXTURE = 6,
-    MEGA_LEAF_VERTICES_TO_TEXTURE = 7
+    LEAFS_NODES = 2
+    LEAFS_TEXTURES = 3
+    LEAFS_NODES_TO_TEXTURE = 6
+    LEAFS_COLORS = 10
+    LEAFS_COLORS_TEXTURE = 11
     VISIBLE_LAYERS_TEXTURES = 9
-    LEAFS_COLORS = 10,
 
 
 class Lod:
@@ -78,26 +76,21 @@ class NLvlOfDetails:
             if file_path is not None:
                 lod.texture.create_from_file(0, 0, total_width, total_height, file_path, material_id=material_id)
             else:
-                lod.texture.create_from_data(0, 0, total_width, total_height, img_data, img_width, img_height,
-                                             material_id=material_id)
+                lod.texture.create_from_image_data(0, 0, total_width, total_height, img_data, img_width, img_height,
+                                                   material_id=material_id)
         elif lod_type == LodType.LEAFS_TEXTURES:
             lod = Lod(level, LodType.LEAFS_TEXTURES)
             lod.material_id = material_id
-        elif lod_type == LodType.MEGA_LEAF_TEXTURE:
-            lod = Lod(level, LodType.MEGA_LEAF_TEXTURE)
-            lod.material_id = material_id
-        elif lod_type == LodType.LEAFS_VERTICES:
-            lod = Lod(level, LodType.LEAFS_VERTICES)
-        elif lod_type == LodType.MEGA_LEAF_VERTICES:
-            lod = Lod(level, LodType.MEGA_LEAF_VERTICES)
-        elif lod_type == LodType.LEAFS_VERTICES_TO_TEXTURE:
-            lod = Lod(level, LodType.LEAFS_VERTICES_TO_TEXTURE)
-            lod.material_id = material_id
-        elif lod_type == LodType.MEGA_LEAF_VERTICES_TO_TEXTURE:
-            lod = Lod(level, LodType.MEGA_LEAF_VERTICES_TO_TEXTURE)
+        elif lod_type == LodType.LEAFS_NODES:
+            lod = Lod(level, LodType.LEAFS_NODES)
+        elif lod_type == LodType.LEAFS_NODES_TO_TEXTURE:
+            lod = Lod(level, LodType.LEAFS_NODES_TO_TEXTURE)
             lod.material_id = material_id
         elif lod_type == LodType.VISIBLE_LAYERS_TEXTURES:
             lod = Lod(level, LodType.VISIBLE_LAYERS_TEXTURES)
+            lod.material_id = material_id
+        elif lod_type == LodType.LEAFS_COLORS_TEXTURE:
+            lod = Lod(level, LodType.LEAFS_COLORS_TEXTURE)
             lod.material_id = material_id
         elif lod_type == LodType.LEAFS_COLORS:
             lod = Lod(level, LodType.LEAFS_COLORS)

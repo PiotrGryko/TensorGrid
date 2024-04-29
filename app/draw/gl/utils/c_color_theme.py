@@ -1,5 +1,6 @@
 import random
 
+import numpy as np
 from matplotlib import pyplot as plt
 
 
@@ -39,13 +40,16 @@ class NColorTheme:
                              'terrain', 'terrain_r', 'turbo', 'turbo_r', 'twilight', 'twilight_r', 'twilight_shifted',
                              'twilight_shifted_r', 'viridis', 'viridis_r', 'winter', 'winter_r']
 
-        random_cmap = random.choice(self.cmap_options)
-
-
-        self.cmap = plt.cm.get_cmap(random_cmap)
+        self.name = random.choice(self.cmap_options)
+        self.cmap = plt.cm.get_cmap(self.name)
         self.color_low = self.cmap(-1)
 
-        print("Color option:", random_cmap, self.cmap(0.0))
+        num_colors = 255
+        values = np.linspace(0, 1, num_colors)  # Generate 255 evenly spaced values between 0 and 1
+        self.color_array = self.cmap(values)[:, :3]  # Get the RGB values for these points
+        self.color_array = (self.color_array * 255).astype(np.uint8).flatten()  # Convert to 8-bit and flatten
+
+        print("Color option:", self.name)
 
     def get_rgb(self):
         return self.cmap(0.0)[:3]
