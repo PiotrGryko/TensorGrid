@@ -25,11 +25,11 @@ class NTexture:
             self.material_two = Material().from_image_data(img_data, img_width, img_height, material_id)
         self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
 
-    def create_from_nodes_vertices(self, n_vertex, n_window, x1, y1, x2, y2, material_id=1):
+    def create_from_frame_buffer(self, n_window, x1, y1, x2, y2, material_id, draw_func):
         if material_id == 1:
-            self.material_one = Material().from_nodes_view(n_vertex, n_window, x1, y1, x2, y2, material_id)
+            self.material_one = Material().from_frame_buffer(n_window, x1, y1, x2, y2, material_id, draw_func)
         elif material_id == 2:
-            self.material_two = Material().from_nodes_view(n_vertex, n_window, x1, y1, x2, y2, material_id)
+            self.material_two = Material().from_frame_buffer(n_window, x1, y1, x2, y2, material_id, draw_func)
         self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
 
     def create_from_floats_grid(self, x1, y1, x2, y2, grid, material_id=1):
@@ -175,6 +175,7 @@ class Material:
 
         return self
 
+
     def from_floats_grid(self, grid, material_id):
         height, width = unpack_shape(grid)
         self.texture = gl.glGenTextures(1)
@@ -194,7 +195,7 @@ class Material:
             print(f"Error loading texture: {error}")
         return self
 
-    def from_nodes_view(self, n_vertex, n_window, x1, y1, x2, y2, material_id):
+    def from_frame_buffer(self, n_window, x1, y1, x2, y2, material_id, draw_func):
         # Generate texture
         self.texture = gl.glGenTextures(1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
@@ -244,7 +245,8 @@ class Material:
 
         # Your drawing code here
         # n_vertex.draw_plane()
-        n_vertex.draw_nodes()
+        draw_func()
+
 
         # # #
         # # # # # #

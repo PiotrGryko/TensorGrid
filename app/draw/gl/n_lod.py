@@ -8,9 +8,12 @@ class LodType(Enum):
     LEAFS_NODES = 2
     LEAFS_TEXTURES = 3
     LEAFS_NODES_TO_TEXTURE = 6
+    LEAFS_COLORS_TO_TEXTURE = 13
+    VISIBLE_LAYERS_TEXTURES = 9
     LEAFS_COLORS = 10
     LEAFS_COLORS_TEXTURE = 11
-    VISIBLE_LAYERS_TEXTURES = 9
+    LEAFS_COLORS_TEXTURE_FROM_CHUNKS = 12
+
 
 
 class Lod:
@@ -68,7 +71,7 @@ class NLvlOfDetails:
         total_width = self.n_net.total_width
         total_height = self.n_net.total_height
         level_zoom_start = self.n_window.min_zoom + (self.n_window.max_zoom - self.n_window.min_zoom) * zoom_percent
-
+        # TODO: move to drawing
         if lod_type == LodType.STATIC_TEXTURE:
             lod = Lod(level, LodType.STATIC_TEXTURE)
             lod.texture = NTexture()
@@ -80,18 +83,18 @@ class NLvlOfDetails:
                                                    material_id=material_id)
         elif lod_type == LodType.LEAFS_TEXTURES:
             lod = Lod(level, LodType.LEAFS_TEXTURES)
-            lod.material_id = material_id
         elif lod_type == LodType.LEAFS_NODES:
             lod = Lod(level, LodType.LEAFS_NODES)
         elif lod_type == LodType.LEAFS_NODES_TO_TEXTURE:
             lod = Lod(level, LodType.LEAFS_NODES_TO_TEXTURE)
-            lod.material_id = material_id
+        elif lod_type == LodType.LEAFS_COLORS_TO_TEXTURE:
+            lod = Lod(level, LodType.LEAFS_COLORS_TO_TEXTURE)
         elif lod_type == LodType.VISIBLE_LAYERS_TEXTURES:
             lod = Lod(level, LodType.VISIBLE_LAYERS_TEXTURES)
-            lod.material_id = material_id
         elif lod_type == LodType.LEAFS_COLORS_TEXTURE:
             lod = Lod(level, LodType.LEAFS_COLORS_TEXTURE)
-            lod.material_id = material_id
+        elif lod_type == LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS:
+            lod = Lod(level, LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS)
         elif lod_type == LodType.LEAFS_COLORS:
             lod = Lod(level, LodType.LEAFS_COLORS)
         else:
@@ -99,6 +102,7 @@ class NLvlOfDetails:
         if texture_factor is not None:
             lod.texture_factor = texture_factor
         lod.level_zoom_start = level_zoom_start
+        lod.material_id = material_id
         self.lod_levels.append(lod)
         self.lod_zoom_step = ((self.n_window.max_zoom * self.last_lod_threshold) - self.n_window.min_zoom) / len(
             self.lod_levels)

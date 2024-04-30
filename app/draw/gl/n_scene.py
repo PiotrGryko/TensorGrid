@@ -65,59 +65,66 @@ class NScene:
                 entity = NEntity(leaf.x1, leaf.y1, leaf.x2, leaf.y2)
                 self.visible_entities[key] = entity
 
+    def get_entity_details_factor(self, entity):
+        (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
+                                                                                        entity.x2, entity.y2)
+        (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
+        target_width = wx2 - wx1
+        target_height = wy2 - wy1
+        col_min, row_min, col_max, row_max = self.n_net.world_to_grid_position(entity.x1,
+                                                                               entity.y1,
+                                                                               entity.x2,
+                                                                               entity.y2)
+        subgrid_width = col_max - col_min
+        subgrid_height = row_max - row_min
+
+        width_factor = max(int(subgrid_width / target_width), 1)
+        height_factor = max(int(subgrid_height / target_height), 1)
+
+        return max(width_factor, height_factor)
+
     def attach_leaf_texture(self, entity, lod):
         if not entity.has_texture_attached(lod.material_id, lod.texture_factor):
-            (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
-                                                                                            entity.x2, entity.y2)
-            (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
-            target_width = wx2 - wx1
-            target_height = wy2 - wy1
-            subgrid = self.n_net.get_subgrid(entity.x1, entity.y1, entity.x2, entity.y2, target_width, target_height)
+            details_factor = self.get_entity_details_factor(entity)
+            subgrid = self.n_net.get_subgrid(entity.x1, entity.y1, entity.x2, entity.y2, details_factor)
             img_data, img_width, img_height = self.textures_factory.get_texture_data(subgrid, lod.texture_factor,
-                                                                                     target_width, target_height)
+                                                                                     details_factor)
             entity.create_texture(img_data, img_width, img_height, lod.material_id, lod.texture_factor)
 
     def attach_layer_texture(self, entity, lod, data):
         if not entity.has_texture_attached(lod.material_id, lod.texture_factor):
-            (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
-                                                                                            entity.x2, entity.y2)
-            (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
-            target_width = wx2 - wx1
-            target_height = wy2 - wy1
+            details_factor = self.get_entity_details_factor(entity)
             img_data, img_width, img_height = self.textures_factory.get_texture_data(data, lod.texture_factor,
-                                                                                     target_width, target_height)
+                                                                                     details_factor)
             entity.create_texture(img_data, img_width, img_height, lod.material_id, lod.texture_factor)
 
     def attach_leaf_colors_grid(self, entity):
         if not entity.colors_attached:
-            (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
-                                                                                            entity.x2, entity.y2)
-            (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
-            target_width = wx2 - wx1
-            target_height = wy2 - wy1
+            details_factor = self.get_entity_details_factor(entity)
             positions_and_colors = self.n_net.get_positions_and_values_array(entity.x1, entity.y1, entity.x2, entity.y2,
-                                                                             target_width, target_height)
+                                                                             details_factor)
             entity.create_colors_grid(positions_and_colors)
 
     def attach_leaf_colors_grid_texture(self, entity, lod):
         if not entity.has_texture_attached(lod.material_id, lod.texture_factor):
-            (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
-                                                                                            entity.x2, entity.y2)
-            (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
-            target_width = wx2 - wx1
-            target_height = wy2 - wy1
-            subgrid = self.n_net.get_subgrid(entity.x1, entity.y1, entity.x2, entity.y2, target_width, target_height)
+            details_factor = self.get_entity_details_factor(entity)
+            subgrid = self.n_net.get_subgrid(entity.x1, entity.y1, entity.x2, entity.y2, details_factor)
             entity.create_colors_grid_texture(subgrid, lod.material_id, lod.texture_factor)
+
+    def attach_leaf_colors_grid_texture_from_data_chunk(self, entity, lod):
+        details_factor = self.get_entity_details_factor(entity)
+        if not entity.has_texture_attached(lod.material_id, lod.texture_factor):
+
+            chunks, dimensions = self.n_net.get_subgrid_chunks(entity.x1, entity.y1, entity.x2,
+                                                               entity.y2, details_factor)
+            entity.create_colors_grid_texture_from_chunks(chunks, dimensions, lod.material_id,
+                                                          lod.texture_factor)
 
     def attach_leaf_nodes_view(self, entity):
         if not entity.nodes_attached:
-            (sx1, sy1, sx2, sy2, zoom_factor) = self.n_window.world_coords_to_screen_coords(entity.x1, entity.y1,
-                                                                                            entity.x2, entity.y2)
-            (wx1, wy1, wx2, wy2) = self.n_window.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
-            target_width = wx2 - wx1
-            target_height = wy2 - wy1
+            details_factor = self.get_entity_details_factor(entity)
             positions_and_colors = self.n_net.get_positions_and_values_array(entity.x1, entity.y1, entity.x2, entity.y2,
-                                                                             target_width, target_height)
+                                                                             details_factor)
             entity.create_nodes_view(positions_and_colors)
 
     def draw_vertices_level(self,
@@ -133,12 +140,17 @@ class NScene:
             n_vertices_shader.use()
             for key, entity in self.visible_entities.items():
                 self.attach_leaf_nodes_view(entity)
-                entity.create_nodes_texture(self.n_window, lod.material_id, lod.texture_factor)
+                entity.create_texture_from_nodes_view(self.n_window, lod.material_id, lod.texture_factor)
         if lod.lod_type == LodType.LEAFS_COLORS:
             n_colors_shader.use()
             for key, entity in self.visible_entities.items():
                 self.attach_leaf_colors_grid(entity)
                 entity.draw_colors_grid()
+        if lod.lod_type == LodType.LEAFS_COLORS_TO_TEXTURE:
+            n_colors_shader.use()
+            for key, entity in self.visible_entities.items():
+                self.attach_leaf_colors_grid(entity)
+                entity.create_texture_from_color_grid_view(self.n_window, lod.material_id, lod.texture_factor)
 
     def draw_texture_level(self,
                            lod,
@@ -157,6 +169,10 @@ class NScene:
             n_material_shader.use()
             for key, entity in self.visible_entities.items():
                 entity.draw_texture(lod.material_id)
+        if lod.lod_type == LodType.LEAFS_COLORS_TO_TEXTURE:
+            n_material_shader.use()
+            for key, entity in self.visible_entities.items():
+                entity.draw_texture(lod.material_id)
         if lod.lod_type == LodType.VISIBLE_LAYERS_TEXTURES:
             n_material_shader.use()
             for key, entity in self.visible_layers_entities.items():
@@ -166,6 +182,11 @@ class NScene:
             n_colors_texture_material_shader.use()
             for key, entity in self.visible_entities.items():
                 self.attach_leaf_colors_grid_texture(entity, lod)
+                entity.draw_texture(lod.material_id)
+        if lod.lod_type == LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS:
+            n_colors_texture_material_shader.use()
+            for key, entity in self.visible_entities.items():
+                self.attach_leaf_colors_grid_texture_from_data_chunk(entity, lod)
                 entity.draw_texture(lod.material_id)
 
     def draw_scene(self,

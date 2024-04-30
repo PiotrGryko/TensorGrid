@@ -45,6 +45,38 @@ class Grid:
                 visible_layers.append(sublayer)
         return visible_layers
 
+    def get_visible_data_chunks2(self, x1, y1, x2, y2, width_factor, height_factor):
+        result_chunks = []
+        result_dimensions = []
+        # Iterate over each subgrid to check for intersections
+        for sublayer in self.layers:
+            grid_x1 = sublayer.column_offset
+            grid_y1 = sublayer.row_offset
+            grid_x2 = grid_x1 + sublayer.columns_count
+            grid_y2 = grid_y1 + sublayer.rows_count
+
+            if self.rectangles_intersect(x1, y1, x2, y2, grid_x1, grid_y1, grid_x2, grid_y2):
+                # Calculate the overlap area
+                overlap_x1 = max(x1, grid_x1)
+                overlap_y1 = max(y1, grid_y1)
+                overlap_x2 = min(x2, grid_x2)
+                overlap_y2 = min(y2, grid_y2)
+                if sublayer.layer_grid.ndim == 1:
+                    # Direct slicing and subsampling in one step
+                    subgrid_slice = sublayer.layer_grid[overlap_y1 - grid_y1:overlap_y2 - grid_y1:height_factor]
+                else:
+                    # For 2D arrays, perform slicing and subsampling for both dimensions in one step
+                    subgrid_slice = sublayer.layer_grid[
+                                    overlap_y1 - grid_y1:overlap_y2 - grid_y1:height_factor,
+                                    overlap_x1 - grid_x1:overlap_x2 - grid_x1:width_factor]
+                result_chunks.append(subgrid_slice)
+                result_dimensions.append(
+                    (overlap_x1,
+                     overlap_y1,
+                     overlap_x2,
+                     overlap_y2))
+        return result_chunks, result_dimensions
+
     def get_visible_area(self, x1, y1, x2, y2):
 
         # Initialize the result array to the dimensions of the view area
@@ -80,7 +112,7 @@ class Grid:
 
         return result_grid
 
-    def get_visible_data_chunks(self, x1, y1, x2, y2, width_factor, height_factor):
+    def get_visible_data_positions_and_values(self, x1, y1, x2, y2, width_factor, height_factor):
 
         rows_list = []
         columns_list = []
@@ -101,17 +133,14 @@ class Grid:
                 overlap_y2 = min(y2, grid_y2)
 
                 if sublayer.layer_grid.ndim == 1:
-                    overlap_data = sublayer.layer_grid[
-                                   overlap_y1 - grid_y1:overlap_y2 - grid_y1]
-                    chunk = overlap_data[::height_factor]
+                    chunk = sublayer.layer_grid[overlap_y1 - grid_y1:overlap_y2 - grid_y1:height_factor]
                     chunk_indices = np.where(chunk != self.default_value)
                     chunk_rows = chunk_indices[0]
                     chunk_columns = np.full(chunk_rows.size, 1)
                 else:
-                    overlap_data = sublayer.layer_grid[
-                                   overlap_y1 - grid_y1:overlap_y2 - grid_y1,
-                                   overlap_x1 - grid_x1:overlap_x2 - grid_x1]
-                    chunk = overlap_data[::height_factor, ::width_factor]
+                    chunk = sublayer.layer_grid[
+                            overlap_y1 - grid_y1:overlap_y2 - grid_y1:height_factor,
+                            overlap_x1 - grid_x1:overlap_x2 - grid_x1:width_factor]
                     chunk_indices = np.where(chunk != self.default_value)
                     chunk_rows, chunk_columns = chunk_indices
 
@@ -197,9 +226,6 @@ class NNet:
     def create_layers(self, all_layers):
         print("Creating layers", len(all_layers))
         for index, layer_data in enumerate(all_layers):
-            # size = layer_data.size
-            # calculated_size = self.calculator.measure(size)
-            # print("Create layer", layer_data.shape)
             grid_layer = Layer(layer_data)
             self.layers.append(grid_layer)
 
@@ -240,66 +266,52 @@ class NNet:
         x2 = x1 + w
         y2 = y1 + h
 
-        node_gap_x = self.node_gap_x
-        node_gap_y = self.node_gap_y
-
-        col_min = int(x1 / node_gap_x)
-        col_max = math.ceil(x2 / node_gap_x)
-
-        row_min = int(y1 / node_gap_y)
-        row_max = math.ceil(y2 / node_gap_y)
+        col_min, row_min, col_max, row_max = self.world_to_grid_position(x1, y1, x2, y2)
         visible = self.grid.get_visible_layers(col_min, row_min, col_max, row_max)
 
         if visible != self.visible_layers:
             self.visible_layers = visible
 
-    def get_subgrid(self, x1, y1, x2, y2, target_width, target_height):
+    def world_to_grid_position(self, x1, y1, x2, y2):
         node_gap_x = self.node_gap_x
         node_gap_y = self.node_gap_y
 
         col_min = int(x1 / node_gap_x)
         col_max = math.ceil(x2 / node_gap_x)
-
         row_min = int(y1 / node_gap_y)
         row_max = math.ceil(y2 / node_gap_y)
+        return (col_min, row_min, col_max, row_max)
 
-        subgrid_width = col_max - col_min
-        subgrid_height = row_max - row_min
+    def get_subgrid_chunks(self, x1, y1, x2, y2, factor):
+        col_min, row_min, col_max, row_max = self.world_to_grid_position(x1, y1, x2, y2)
 
-        width_factor = max(int(subgrid_width / target_width), 1)
-        height_factor = max(int(subgrid_height / target_height), 1)
+        chunks, dimensions, = self.grid.get_visible_data_chunks2(col_min, row_min, col_max, row_max,
+                                                                 factor,
+                                                                 factor)
+        dimensions = [(c1 * self.node_gap_y, r1 * self.node_gap_x, c2 * self.node_gap_y, r2 * self.node_gap_x) for
+                      c1, r1, c2, r2 in dimensions]
+
+        return chunks, dimensions
+
+    def get_subgrid(self, x1, y1, x2, y2, factor):
+        col_min, row_min, col_max, row_max = self.world_to_grid_position(x1, y1, x2, y2)
 
         subgrid = self.grid.get_visible_area(col_min, row_min, col_max, row_max)
-        subgrid = subgrid[::height_factor, ::width_factor]
+        subgrid = subgrid[::factor, ::factor]
         return subgrid
 
-    def get_positions_and_values_array(self, x1, y1, x2, y2, target_width, target_height):
+    def get_positions_and_values_array(self, x1, y1, x2, y2, factor):
 
         start_time = time.time()
-        node_gap_x = self.node_gap_x
-        node_gap_y = self.node_gap_y
-
-        col_min = int(x1 / node_gap_x)
-        col_max = math.ceil(x2 / node_gap_x)
-
-        row_min = int(y1 / node_gap_y)
-        row_max = math.ceil(y2 / node_gap_y)
-
-        # subgrid_height, subgrid_width = unpack_shape(subgrid)
-        subgrid_width = col_max - col_min
-        subgrid_height = row_max - row_min
-        # Determine the sampling factor
-        width_factor = max(int(subgrid_width / target_width), 1)
-        height_factor = max(int(subgrid_height / target_height), 1)
-
-        rows, columns, values = self.grid.get_visible_data_chunks(col_min,
-                                                                  row_min,
-                                                                  col_max,
-                                                                  row_max,
-                                                                  width_factor,
-                                                                  height_factor)
-        rows_pos = rows * node_gap_y
-        columns_pos = columns * node_gap_x
+        col_min, row_min, col_max, row_max = self.world_to_grid_position(x1, y1, x2, y2)
+        rows, columns, values = self.grid.get_visible_data_positions_and_values(col_min,
+                                                                                row_min,
+                                                                                col_max,
+                                                                                row_max,
+                                                                                factor,
+                                                                                factor)
+        rows_pos = rows * self.node_gap_y
+        columns_pos = columns * self.node_gap_x
 
         # Stack the indices with the subgrid values
         # This results in a 3D array where the last dimension has three elements: row, col, value

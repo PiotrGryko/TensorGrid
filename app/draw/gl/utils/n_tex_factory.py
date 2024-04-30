@@ -14,7 +14,7 @@ from app.draw.gl.n_net import unpack_shape
 class NTexFactory:
 
     @abstractmethod
-    def get_texture_data(self, data_grid, factor, target_width, target_height):
+    def get_texture_data(self, data_grid, factor, details_factor):
         """Implement this method"""
         pass
 
@@ -33,7 +33,7 @@ class ImageTextureFactory(NTexFactory):
             image_width, image_height = image.width, image.height
             self.images[i] = [image_data, image_width, image_height]
 
-    def get_texture_data(self, data_grid, factor, target_width, target_height):
+    def get_texture_data(self, data_grid, factor, details_factor):
         image_data = self.images[factor]
         return image_data[0], image_data[1], image_data[2]
 
@@ -75,57 +75,23 @@ class RGBGridTextureFactory(NTexFactory):
 
         return downsampled_grid
 
-    def get_texture_data(self, data_grid, factor, target_width, target_height):
+    def get_texture_data(self, data_grid, factor, details_factor):
         start_time = time.time()
         new_grid = data_grid
-        grid_factor = factor
-        target_width = max(int(target_width),1)
-        target_height = max(int(target_height),1)
-        # new_grid = self.average_downsample(new_grid,grid_factor)
-
-        current_height, current_width = unpack_shape(data_grid)
-
-        # Determine the sampling factor
-        width_factor = max(int(current_width / target_width),1)
-        height_factor = max(int(current_height / target_height),1)
-
-        # width_factor = factor
-        # height_factor =factor
-
         if len(new_grid.shape) == 1:
-            new_grid = new_grid[::height_factor]
+            new_grid = new_grid[::details_factor]
         else:
-            new_grid = new_grid[::height_factor, ::width_factor]
+            new_grid = new_grid[::details_factor, ::details_factor]
 
+        org_image_height, org_image_width = unpack_shape(new_grid)  # self.scale_down_dimensions(unpack_shape(new_grid))
 
-        # new_grid = self.scale_down_and_average(new_grid)
-
-        org_image_height, org_image_width = unpack_shape(new_grid) # self.scale_down_dimensions(unpack_shape(new_grid))
-
-        image_height = org_image_height  #min(target_height, org_image_height)
-        image_width =org_image_width # min(target_width, org_image_width)
+        image_height = org_image_height
+        image_width = org_image_width
 
         # Normalize the grid data to [0, 255] range
         cmap_rbga = self.color_theme.cmap(new_grid)
         normalized_data = (cmap_rbga * 255).astype(np.uint8)
-        # image = Image.fromarray(normalized_data)
-        #
-        # image_rgba = image.convert('RGBA').resize((image_width, image_height))
-        # sharpened_image = image_rgba.filter(ImageFilter.SHARPEN)
 
-        # # Get the raw pixel data as a numpy array
-        # image_data = np.array(sharpened_image)
-
-        # print("Texture generated", time.time() - start_time,
-        #       "width", current_width,
-        #       "height", current_height,
-        #       "img width", org_image_width,
-        #       "img height", org_image_height,
-        #       "target_width", target_width,
-        #       "target_height", target_height,
-        #       "width_factor", width_factor,
-        #       "height_factor", height_factor,
-        #       )
         return normalized_data, image_width, image_height
 
     def scale_down_dimensions(self, shape, max_size=(1600, 1600)):

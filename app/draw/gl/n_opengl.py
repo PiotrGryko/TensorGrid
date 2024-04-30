@@ -124,18 +124,18 @@ def create_level_of_details():
     # img_data, img_width, img_height = rgb_textures_factory.get_texture(grid, 25)
     #n_lod.add_level(LodType.STATIC_TEXTURE, 0.0, img_data=img_data, img_width=img_width, img_height=img_height)
 
-    n_lod.add_level(LodType.VISIBLE_LAYERS_TEXTURES, 0.0, texture_factor=10)
-    n_lod.add_level(LodType.VISIBLE_LAYERS_TEXTURES, 0.0001, texture_factor=3)
-    n_lod.add_level(LodType.LEAFS_COLORS, 0.0003, texture_factor=2)
-    n_lod.add_level(LodType.LEAFS_COLORS, 0.0005, texture_factor=1)
+    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.0, texture_factor=15)
+    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.0001, texture_factor=3)
+    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.0003, texture_factor=2)
+    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.0005, texture_factor=1)
 
-    n_lod.add_level(LodType.LEAFS_COLORS, 0.001, texture_factor=4)
+    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.001, texture_factor=4)
 
     n_lod.add_level(LodType.LEAFS_COLORS, 0.005, texture_factor=3)
     # n_lod.add_level(LodType.LEAFS_TEXTURES, 0.01, texture_factor=2)
     # n_lod.add_level(LodType.LEAFS_TEXTURES, 0.015, texture_factor=1)
     # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
-    n_lod.add_level(LodType.LEAFS_NODES, 0.02, texture_factor=1)
+    n_lod.add_level(LodType.LEAFS_COLORS, 0.02, texture_factor=1)
     n_lod.add_level(LodType.LEAFS_NODES, 0.03, texture_factor=1)
     n_lod.dump()
 
