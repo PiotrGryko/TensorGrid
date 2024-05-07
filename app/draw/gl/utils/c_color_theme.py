@@ -50,6 +50,3 @@ class NColorTheme:
         self.color_array = (self.color_array * 255).astype(np.uint8).flatten()  # Convert to 8-bit and flatten
 
         print("Color option:", self.name)
-
-    def get_rgb(self):
-        return self.cmap(0.0)[:3]

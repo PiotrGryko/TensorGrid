@@ -1,32 +1,26 @@
 from enum import Enum
 
-from app.draw.gl.draw.n_texture import NTexture
-
 
 class LodType(Enum):
-    STATIC_TEXTURE = 1
-    LEAFS_NODES = 2
-    LEAFS_TEXTURES = 3
-    LEAFS_NODES_TO_TEXTURE = 6
-    LEAFS_COLORS_TO_TEXTURE = 13
-    VISIBLE_LAYERS_TEXTURES = 9
-    LEAFS_COLORS = 10
-    LEAFS_COLORS_TEXTURE = 11
-    LEAFS_COLORS_TEXTURE_FROM_CHUNKS = 12
-
-
+    LAYERS_STATIC_TEXTURES = 1  # Visible layers using texture generator
+    LEAVES_STATIC_TEXTURES = 2  # Visible BSP tree leafs data using texture generator
+    LEAVES_COLOR_MAP_TEXTURE = 3  # Drawing FLOATS texture colored using color_map texture sampling
+    LEAVES_POINTS = 4  # Drawing POINTS vertices colored using color_map texture sampling
+    LEAVES_POINTS_TO_TEXTURE = 5  # Drawing LEAFS_COLORS to texture frame buffer
+    LEAVES_POINTS_FROM_TEXTURE = 6  # Drawing colors vertices using instanced drawing and texture
+    LEAVES_NODES = 7  # Drawing nodes vertices using instanced drawing
+    LEAVES_NODES_TO_TEXTURE = 8  # Drawing LEAVES_NODES to texture frame buffer
+    LEAVES_NODES_FROM_TEXTURE = 9  # Drawing nodes vertices using instanced drawing and texture
 
 class Lod:
     def __init__(self, level, lod_type):
         self.level = level
         self.lod_type = lod_type
         self.texture = None
-        self.material_id = None
-        self.texture_factor = 1
         self.level_zoom_start = 0  # Min zoom value at which this level should be visible
 
     def dump(self):
-        return f"level: {self.level}, lod_type: {self.lod_type}, material_id: {self.material_id}, zoom start {self.level_zoom_start}, factor {self.texture_factor}"
+        return f"level: {self.level}, lod_type: {self.lod_type}, zoom start {self.level_zoom_start}"
 
 
 class NLvlOfDetails:
@@ -52,57 +46,16 @@ class NLvlOfDetails:
     def update_viewport(self, viewport):
         self.viewport = viewport
 
-    def get_material_for_level(self, level):
-        is_even = level % 2 == 0
-        material_id = 2 if is_even else 1
-        return material_id
-
     def add_level(self,
                   lod_type,
-                  zoom_percent,
-                  img_data=None,
-                  img_width=None,
-                  img_height=None,
-                  file_path=None,
-                  texture_factor=None
-                  ):
+                  zoom_percent):
         level = len(self.lod_levels)
-        material_id = self.get_material_for_level(level)
-        total_width = self.n_net.total_width
-        total_height = self.n_net.total_height
         level_zoom_start = self.n_window.min_zoom + (self.n_window.max_zoom - self.n_window.min_zoom) * zoom_percent
-        # TODO: move to drawing
-        if lod_type == LodType.STATIC_TEXTURE:
-            lod = Lod(level, LodType.STATIC_TEXTURE)
-            lod.texture = NTexture()
-            lod.material_id = material_id
-            if file_path is not None:
-                lod.texture.create_from_file(0, 0, total_width, total_height, file_path, material_id=material_id)
-            else:
-                lod.texture.create_from_image_data(0, 0, total_width, total_height, img_data, img_width, img_height,
-                                                   material_id=material_id)
-        elif lod_type == LodType.LEAFS_TEXTURES:
-            lod = Lod(level, LodType.LEAFS_TEXTURES)
-        elif lod_type == LodType.LEAFS_NODES:
-            lod = Lod(level, LodType.LEAFS_NODES)
-        elif lod_type == LodType.LEAFS_NODES_TO_TEXTURE:
-            lod = Lod(level, LodType.LEAFS_NODES_TO_TEXTURE)
-        elif lod_type == LodType.LEAFS_COLORS_TO_TEXTURE:
-            lod = Lod(level, LodType.LEAFS_COLORS_TO_TEXTURE)
-        elif lod_type == LodType.VISIBLE_LAYERS_TEXTURES:
-            lod = Lod(level, LodType.VISIBLE_LAYERS_TEXTURES)
-        elif lod_type == LodType.LEAFS_COLORS_TEXTURE:
-            lod = Lod(level, LodType.LEAFS_COLORS_TEXTURE)
-        elif lod_type == LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS:
-            lod = Lod(level, LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS)
-        elif lod_type == LodType.LEAFS_COLORS:
-            lod = Lod(level, LodType.LEAFS_COLORS)
-        else:
+        if lod_type.value not in LodType._value2member_map_:
             raise f"Unsupported lod type: {lod_type}"
-        if texture_factor is not None:
-            lod.texture_factor = texture_factor
+
+        lod = Lod(level, lod_type)
         lod.level_zoom_start = level_zoom_start
-        lod.material_id = material_id
         self.lod_levels.append(lod)
         self.lod_zoom_step = ((self.n_window.max_zoom * self.last_lod_threshold) - self.n_window.min_zoom) / len(
             self.lod_levels)
@@ -134,20 +87,3 @@ class NLvlOfDetails:
             self.next_level = None
 
         print(self.current_level.dump())
-
-    def get_offset_from_previous_level(self):
-        x, y, w, h, zoom = self.viewport
-
-        start_level = self.current_level.level_zoom_start
-        end_level = start_level + 0.1 if self.next_level is None else self.next_level.level_zoom_start
-        end_level = start_level + (end_level - start_level)
-
-        norm_zoom = zoom - self.n_window.min_zoom
-
-        if norm_zoom < start_level:
-            offset = 0
-        elif norm_zoom > end_level:
-            offset = 1
-        else:
-            offset = (norm_zoom - start_level) / (end_level - start_level)
-        return 1 - offset

@@ -60,10 +60,9 @@ class Projection:
         _matrix = np.dot(_matrix, scaling_matrix)
         return _matrix
 
-
-    # Map window point in [-1,1] cords to world cords
-    # Usage example: node_position = window_to_world_point(mouse_position)
     def window_to_world_point(self, x, y):
+        # Map window point in [-1,1] cords to world cords
+        # Usage example: node_position = window_to_world_point(mouse_position)
         point = np.array([x, y, 0.0, 1.0], dtype=np.float32)
         inverse_projection_matrix = np.linalg.inv(self.matrix)
         world_point_homogeneous = point @ inverse_projection_matrix

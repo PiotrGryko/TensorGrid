@@ -1,36 +1,48 @@
+import os
 import time
 
 import OpenGL.GL as gl
 import glfw
+import psutil
 from OpenGL.GL import *
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoModelForCausalLM
 
-from app.draw.gl.calculator.n_numpy_calculator import NumpyCalculator
-from app.draw.gl.utils.c_color_theme import NColorTheme
 from app.draw.gl.n_lod import NLvlOfDetails, LodType
 from app.draw.gl.n_net import NNet
-from app.draw.gl.calculator.n_open_cl_calculator import OpenCLPositionsCalculator
 from app.draw.gl.n_scene import NScene
-from app.draw.gl.utils.n_tex_factory import RGBGridTextureFactory, ImageTextureFactory
+from app.draw.gl.n_scene_v2 import NSceneV2
 from app.draw.gl.n_tree import NTree
 from app.draw.gl.n_window import NWindow
+from app.draw.gl.utils.c_color_theme import NColorTheme
+from app.draw.gl.utils.n_tex_factory import RGBGridTextureFactory, ImageTextureFactory
 
 start_time = 0
 frame_count = 0
 
 n_window = NWindow()
-
 color_theme = NColorTheme()
-
 textures_factory = ImageTextureFactory()
 rgb_textures_factory = RGBGridTextureFactory(color_theme)
 
-calculator = NumpyCalculator()
-n_net = NNet(n_window, color_theme, calculator)
+n_net = NNet(n_window, color_theme)
 n_lod = NLvlOfDetails(n_net, n_window)
 n_tree = NTree(0)
-n_scene = NScene(n_lod, n_tree, n_net, n_window, rgb_textures_factory)
+n_scene = NSceneV2(n_lod, n_tree, n_net, n_window, rgb_textures_factory)
 DEBUG = False
+
+process = psutil.Process(os.getpid())
+memory_usage = 0
+virtual_memory_usage = 0
+
+
+def print_memory_usage():
+    global memory_usage
+    global virtual_memory_usage
+    mem_info = process.memory_info()
+    usage = f"{mem_info.rss / (1024 * 1024 * 1024):.2f}"
+    if memory_usage != usage:
+        memory_usage = usage
+        print(f"Memory usage: {memory_usage} GB (Resident Set Size)")
 
 
 def render():
@@ -55,56 +67,52 @@ def render():
 
     if DEBUG:
         # Use the shader program
-        n_window.n_nodes_shader.use()
-        n_window.n_nodes_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_debug_shader.use()
+        n_window.n_debug_shader.update_projection(n_window.get_projection_matrix())
         n_lod.load_current_level()
         n_scene.draw_debug_tree()
 
-        n_window.n_nodes_shader.use()
-        n_window.n_nodes_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_debug_shader.use()
+        n_window.n_debug_shader.update_projection(n_window.get_projection_matrix())
 
-        n_window.n_material_one_shader.use()
-        n_window.n_material_one_shader.update_projection(n_window.get_projection_matrix())
-
-        n_window.n_material_two_shader.use()
-        n_window.n_material_two_shader.update_projection(n_window.get_projection_matrix())
     else:
 
-        n_window.n_nodes_shader.use()
-        n_window.n_nodes_shader.update_projection(n_window.get_projection_matrix())
-        n_window.n_nodes_shader.update_color_map(color_theme.name, color_theme.color_array)
+        n_window.n_instances_from_buffer_shader.use()
+        n_window.n_instances_from_buffer_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_instances_from_buffer_shader.update_color_map(color_theme.name, color_theme.color_array)
 
-        n_window.n_colors_shader.use()
-        n_window.n_colors_shader.update_projection(n_window.get_projection_matrix())
-        n_window.n_colors_shader.update_color_map(color_theme.name, color_theme.color_array)
+        n_window.n_points_shader.use()
+        n_window.n_points_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_points_shader.update_color_map(color_theme.name, color_theme.color_array)
 
-        n_window.n_material_one_shader.use()
-        n_window.n_material_one_shader.update_projection(n_window.get_projection_matrix())
-        n_window.n_material_one_shader.update_color_map(color_theme.name, color_theme.color_array)
+        n_window.n_static_texture_shader.use()
+        n_window.n_static_texture_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_static_texture_shader.update_color_map(color_theme.name, color_theme.color_array)
 
-        n_window.n_material_two_shader.use()
-        n_window.n_material_two_shader.update_projection(n_window.get_projection_matrix())
-        n_window.n_material_two_shader.update_color_map(color_theme.name, color_theme.color_array)
+        n_window.n_color_map_texture_shader.use()
+        n_window.n_color_map_texture_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_color_map_texture_shader.update_color_map(color_theme.name, color_theme.color_array)
 
-        n_window.n_colors_texture_material_one_shader.use()
-        n_window.n_colors_texture_material_one_shader.update_projection(n_window.get_projection_matrix())
-        n_window.n_colors_texture_material_one_shader.update_color_map(color_theme.name, color_theme.color_array)
+        n_window.n_color_map_v2_texture_shader.use()
+        n_window.n_color_map_v2_texture_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_color_map_v2_texture_shader.update_color_map(color_theme.name, color_theme.color_array)
 
-        n_window.n_colors_texture_material_two_shader.use()
-        n_window.n_colors_texture_material_two_shader.update_projection(n_window.get_projection_matrix())
-        n_window.n_colors_texture_material_two_shader.update_color_map(color_theme.name, color_theme.color_array)
+        n_window.n_instances_from_texture_shader.use()
+        n_window.n_instances_from_texture_shader.update_projection(n_window.get_projection_matrix())
+        n_window.n_instances_from_texture_shader.update_color_map(color_theme.name, color_theme.color_array)
 
         n_lod.load_current_level()
         n_scene.draw_scene(
-            n_window.n_nodes_shader,
-            n_window.n_colors_shader,
-            n_window.n_material_one_shader,
-            n_window.n_material_two_shader,
-            n_window.n_colors_texture_material_one_shader,
-            n_window.n_colors_texture_material_two_shader
+            n_window.n_points_shader,
+            n_window.n_static_texture_shader,
+            n_window.n_color_map_texture_shader,
+            n_window.n_color_map_v2_texture_shader,
+            n_window.n_instances_from_buffer_shader,
+            n_window.n_instances_from_texture_shader
         )
 
     glfw.swap_buffers(n_window.window)
+    print_memory_usage()
 
 
 def on_viewport_updated():
@@ -115,28 +123,14 @@ def on_viewport_updated():
 
 
 def create_level_of_details():
-    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.0, file_path="tiles/test2.png")
-    # n_lod.add_level(LodType.STATIC_TEXTURE, 0.02, file_path="tiles/test3.png")
     print("Creating level of details")
-    #n_lod.add_level(LodType.STATIC_TEXTURE, 0.0, file_path="tiles/test2.png")
 
-    # grid = n_net.grid.get_visible_area(0,0,n_net.grid_columns_count, n_net.grid_rows_count)
-    # img_data, img_width, img_height = rgb_textures_factory.get_texture(grid, 25)
-    #n_lod.add_level(LodType.STATIC_TEXTURE, 0.0, img_data=img_data, img_width=img_width, img_height=img_height)
+    n_lod.add_level(LodType.LEAVES_COLOR_MAP_TEXTURE, 0.0)
+    n_lod.add_level(LodType.LEAVES_COLOR_MAP_TEXTURE, 0.0001)
+    n_lod.add_level(LodType.LEAVES_POINTS_FROM_TEXTURE, 0.003)
+    n_lod.add_level(LodType.LEAVES_NODES_FROM_TEXTURE, 0.025)
+    n_lod.add_level(LodType.LEAVES_NODES, 0.035)
 
-    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.0, texture_factor=15)
-    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.0001, texture_factor=3)
-    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.0003, texture_factor=2)
-    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.0005, texture_factor=1)
-
-    n_lod.add_level(LodType.LEAFS_COLORS_TEXTURE_FROM_CHUNKS, 0.001, texture_factor=4)
-
-    n_lod.add_level(LodType.LEAFS_COLORS, 0.005, texture_factor=3)
-    # n_lod.add_level(LodType.LEAFS_TEXTURES, 0.01, texture_factor=2)
-    # n_lod.add_level(LodType.LEAFS_TEXTURES, 0.015, texture_factor=1)
-    # n_lod.add_level(LodType.MEGA_LEAF_VERTICES_TO_TEXTURE, 0.03, texture_factor=1)
-    n_lod.add_level(LodType.LEAFS_COLORS, 0.02, texture_factor=1)
-    n_lod.add_level(LodType.LEAFS_NODES, 0.03, texture_factor=1)
     n_lod.dump()
 
 
@@ -153,36 +147,30 @@ def main():
 
     version = glGetString(GL_VERSION)
     print(f"OpenGL version: {version.decode('utf-8')}")
-    n_window.n_nodes_shader.compile_nodes_program()
-    n_window.n_colors_shader.compile_color_grid_program()
-    n_window.n_material_one_shader.compile_textures_material_one_program()
-    n_window.n_material_two_shader.compile_textures_material_two_program()
-    n_window.n_colors_texture_material_one_shader.compile_colors_textures_material_one_program()
-    n_window.n_colors_texture_material_two_shader.compile_colors_textures_material_two_program()
+    n_window.n_debug_shader.compile_debug_program()
+    n_window.n_points_shader.compile_points_program()
+    n_window.n_static_texture_shader.compile_static_texture_program()
+    n_window.n_color_map_texture_shader.compile_color_map_texture_program()
+    n_window.n_color_map_v2_texture_shader.compile_color_map_v2_texture_program()
+    n_window.n_instances_from_buffer_shader.compile_instances_from_buffer_program()
+    n_window.n_instances_from_texture_shader.compile_instances_v2_program()
 
+    print_memory_usage()
 
     model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-    #model_name = "bczhou/TinyLLaVA-3.1B"
-
-    # model_name = "your-llm-model-name"  # Replace with the name or path of your LLM model
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+    model =  AutoModelForCausalLM.from_pretrained(model_name)
     all_layers_and_parameters = list(model.named_parameters())
     tensors = [tensor for name, tensor in all_layers_and_parameters]
-    #n_net.init_from_size(tensors)
+    print_memory_usage()
     n_net.init_from_tensors(tensors)
-
-    # Init net
-    #n_net.init_from_size([10000000, 100000000, 14000000, 1004000])
-    # n_net.init(tmp_layers[0], tmp_layers[1:])
-    # generate nodes grid
+    #n_net.init_from_size([1000000])
+    print_memory_usage()
     # update tree size and depth using grid size
     n_tree.set_size(n_net.total_width, n_net.total_height)
     # n_tree.load_net_size()
     # calculate min zoom using grid size
     n_window.calculate_min_zoom(n_net)
-    # n_lod.load_window_zoom_values(n_window.min_zoom, n_window.max_zoom, n_tree.depth)
     # create level of details
-    # n_lod.generate_levels(n_tree.depth)
     create_level_of_details()
 
     # generate tree
@@ -193,9 +181,12 @@ def main():
     print("Main loop")
     n_window.start_main_loop()
     glfw.terminate()
-    gl.glDeleteProgram(n_window.n_nodes_shader.shader_program)
-    gl.glDeleteProgram(n_window.n_material_one_shader.shader_program)
-    gl.glDeleteProgram(n_window.n_material_two_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_debug_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_points_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_static_texture_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_color_map_texture_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_instances_from_buffer_shader.shader_program)
+    gl.glDeleteProgram(n_window.n_instances_from_texture_shader.shader_program)
 
 
 if __name__ == "__main__":

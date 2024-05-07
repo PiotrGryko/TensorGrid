@@ -1,3 +1,5 @@
+import math
+
 import OpenGL.GL as gl
 import numpy as np
 from PIL import Image
@@ -7,54 +9,57 @@ from app.draw.gl.n_net import unpack_shape
 
 class NTexture:
     def __init__(self):
-        self.material_one = None
-        self.material_two = None
+        self.material = None
         self.triangle = None
 
-    def create_from_file(self, x1, y1, x2, y2, filename, material_id=1):
-        if material_id == 1:
-            self.material_one = Material().from_file(filename)
-        elif material_id == 2:
-            self.material_two = Material().from_file(filename)
-        self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
+    def create_from_file(self, x1, y1, x2, y2, filename):
+        self.material = Material().from_file(filename)
+        self.triangle = Triangle(x1, y1, x2, y2)
 
-    def create_from_image_data(self, x1, y1, x2, y2, img_data, img_width, img_height, material_id=1):
-        if material_id == 1:
-            self.material_one = Material().from_image_data(img_data, img_width, img_height, material_id)
-        elif material_id == 2:
-            self.material_two = Material().from_image_data(img_data, img_width, img_height, material_id)
-        self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
+    def create_from_image_data(self, x1, y1, x2, y2, img_data, img_width, img_height):
+        self.material = Material().from_image_data(img_data, img_width, img_height)
+        self.triangle = Triangle(x1, y1, x2, y2)
 
-    def create_from_frame_buffer(self, n_window, x1, y1, x2, y2, material_id, draw_func):
-        if material_id == 1:
-            self.material_one = Material().from_frame_buffer(n_window, x1, y1, x2, y2, material_id, draw_func)
-        elif material_id == 2:
-            self.material_two = Material().from_frame_buffer(n_window, x1, y1, x2, y2, material_id, draw_func)
-        self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
+    def create_from_frame_buffer(self, n_window, x1, y1, x2, y2, draw_func):
+        self.material = Material().from_frame_buffer(n_window, x1, y1, x2, y2, draw_func)
+        self.triangle = Triangle(x1, y1, x2, y2)
 
-    def create_from_floats_grid(self, x1, y1, x2, y2, grid, material_id=1):
-        if material_id == 1:
-            self.material_one = Material().from_floats_grid(grid, material_id)
-        elif material_id == 2:
-            self.material_two = Material().from_floats_grid(grid, material_id)
-        self.triangle = Triangle(x1, y1, x2, y2, material_id=material_id)
+    def create_from_floats_grid(self, x1, y1, x2, y2, grid):
+        self.material = Material().from_floats_grid(grid)
+        self.triangle = Triangle(x1, y1, x2, y2)
+
+    def create_from_floats_grid_chunks(self, x1, y1, x2, y2, width, height, chunks, dimensions):
+        self.material = Material().from_floats_grid_chunks(width, height, chunks, dimensions)
+        self.triangle = Triangle(x1, y1, x2, y2)
+
+    def use_texture(self):
+        if self.material is None:
+            return
+        self.material.use_texture1()
 
     def draw(self):
-        if self.material_one is None and self.material_two is None:
+        if self.material is None:
             return
-        if self.material_one:
-            self.material_one.use_texture1()
-        elif self.material_two:
-            self.material_two.use_texture2()
+        self.material.use_texture1()
 
         gl.glBindVertexArray(self.triangle.vao)
         gl.glDrawElements(gl.GL_TRIANGLES, len(self.triangle.indices), gl.GL_UNSIGNED_INT, None)
+
+    def destroy(self):
+        if self.material is not None:
+            self.material.destroy()
+        if self.triangle is not None:
+            self.triangle.destroy()
 
 
 class Triangle:
     def __init__(self, x1, y1, x2, y2, material_id=1):
         # x1, y1 = -0.5, -0.5
         # x2, y2 = 0.5, 0.5
+        self.x1 = x1
+        self.y1 = y1
+        self.x2 = x2
+        self.y2 = y2
 
         self.vertices = np.array([
             x1, y1,  # Bottom-left
@@ -103,22 +108,37 @@ class Triangle:
             gl.glVertexAttribPointer(2, 2, gl.GL_FLOAT, gl.GL_FALSE, 0, None)
 
         # Create and bind the element buffer object (EBO)
-        ebo = gl.glGenBuffers(1)
-        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, ebo)
+        self.ebo = gl.glGenBuffers(1)
+        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.ebo)
         gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, self.indices.nbytes, self.indices, gl.GL_STATIC_DRAW)
 
     def destroy(self):
-        gl.glDeleteVertexArrays(1, (self.vao,))
-        gl.glDeleteBuffers(1, (self.vbo,))
+        gl.glBindVertexArray(0)  # Unbind any VAOs
+        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, 0)  # Unbind any EBOs bound to GL_ELEMENT_ARRAY_BUFFER
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, 0)  # Unbind any VBOs bound to GL_ARRAY_BUFFER
+
+        if self.vao is not None:
+            gl.glDeleteVertexArrays(1, (self.vao,))
+        if self.vbo is not None:
+            gl.glDeleteBuffers(1, (self.vbo,))
+        if self.tex_vbo is not None:
+            gl.glDeleteBuffers(1, (self.tex_vbo,))
+        if self.ebo is not None:
+            gl.glDeleteBuffers(1, (self.ebo,))
+        gl.glFlush()
 
 
 class Material:
     def __init__(self):
+        self.nodes_vao = None
+        self.circle_vbo = None
         self.texture = None
         self.img_data = None
         self.image_width = None
         self.image_height = None
         self.fbo = None
+        self.pbo = None
+
 
     def create_pbo(self, img_data):
         # Generate a buffer ID for the PBO
@@ -132,26 +152,21 @@ class Material:
         return pbo
 
     def from_file(self, filepath):
-
         image = Image.open(filepath)
         img_data = np.array(image)
 
         image_width, image_height = image.width, image.height
         print(image, image_width, image_height)
-        return self.from_image_data(img_data, image_width, image_height, 1)
+        return self.from_image_data(img_data, image_width, image_height)
 
-    def from_image_data(self, img_data, image_width, image_height, material_id):
+    def from_image_data(self, img_data, image_width, image_height):
         self.img_data = img_data
         self.image_width = image_width
         self.image_height = image_height
         self.texture = gl.glGenTextures(1)
 
-        pbo = self.create_pbo(img_data)
-
-        if material_id == 1:
-            gl.glActiveTexture(gl.GL_TEXTURE1)
-        elif material_id == 2:
-            gl.glActiveTexture(gl.GL_TEXTURE2)
+        self.pbo = self.create_pbo(img_data)
+        gl.glActiveTexture(gl.GL_TEXTURE1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
@@ -159,13 +174,10 @@ class Material:
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
 
         # Bind the PBO to load texture data
-        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, pbo)
+        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, self.pbo)
         # Load texture data from PBO
         gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE,
                         None)
-        # Loading texture directly:
-        # gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_RGBA, image_width, image_height, 0, gl.GL_RGBA, gl.GL_UNSIGNED_BYTE,
-        #                 img_data)
         # Unbind the PBO
         gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, 0)
 
@@ -175,27 +187,51 @@ class Material:
 
         return self
 
-
-    def from_floats_grid(self, grid, material_id):
+    def from_floats_grid(self, grid):
         height, width = unpack_shape(grid)
         self.texture = gl.glGenTextures(1)
-        if material_id == 1:
-            gl.glActiveTexture(gl.GL_TEXTURE1)
-        elif material_id == 2:
-            gl.glActiveTexture(gl.GL_TEXTURE2)
+        self.pbo = self.create_pbo(grid)
+
+        gl.glActiveTexture(gl.GL_TEXTURE1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
-        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_R32F, width, height, 0, gl.GL_RED, gl.GL_FLOAT, grid)
+
+        # Bind the PBO to load texture data
+        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, self.pbo)
+        # Load texture data from PBO
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_R32F, width, height, 0, gl.GL_RED, gl.GL_FLOAT, None)
+        # Unbind the PBO
+        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, 0)
 
         error = gl.glGetError()
         if error != gl.GL_NO_ERROR:
             print(f"Error loading texture: {error}")
         return self
 
-    def from_frame_buffer(self, n_window, x1, y1, x2, y2, material_id, draw_func):
+    def from_floats_grid_chunks(self, width, height, chunks, dimensions):
+        self.texture = gl.glGenTextures(1)
+        gl.glActiveTexture(gl.GL_TEXTURE1)
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, gl.GL_R32F, width, height, 0, gl.GL_RED, gl.GL_FLOAT, None)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
+        for c, d in zip(chunks, dimensions):
+            cx1, cy1, cx2, cy2 = d
+            gl.glTexSubImage2D(gl.GL_TEXTURE_2D, 0, cx1, cy1, cx2 - cx1, cy2 - cy1, gl.GL_RED, gl.GL_FLOAT, c)
+
+        gl.glBindTexture(gl.GL_TEXTURE_2D, 0)
+
+        error = gl.glGetError()
+        if error != gl.GL_NO_ERROR:
+            print(f"Error loading texture: {error}")
+        return self
+
+    def from_frame_buffer(self, n_window, x1, y1, x2, y2, draw_func):
         # Generate texture
         self.texture = gl.glGenTextures(1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
@@ -234,19 +270,15 @@ class Material:
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
 
         tile_projection_matrix = n_window.projection.get_projection_for_tile(sx1, sy1, sx2, sy2)
-        n_window.n_nodes_shader.update_projection(tile_projection_matrix)
+        n_window.n_instances_from_buffer_shader.update_projection(tile_projection_matrix)
 
         # Activate the first texture unit and bind your texture
-        if material_id == 1:
-            gl.glActiveTexture(gl.GL_TEXTURE1)
-        elif material_id == 2:
-            gl.glActiveTexture(gl.GL_TEXTURE2)
+        gl.glActiveTexture(gl.GL_TEXTURE1)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
         # Your drawing code here
         # n_vertex.draw_plane()
         draw_func()
-
 
         # # #
         # # # # # #
@@ -256,7 +288,7 @@ class Material:
         # image.save(f"tiles/output{int(image_width)}_{int(image_height)}.png")
 
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
-        n_window.n_nodes_shader.update_projection(n_window.projection.matrix)
+        n_window.n_instances_from_buffer_shader.update_projection(n_window.projection.matrix)
 
         gl.glViewport(0, 0, viewport[2], viewport[3])
 
@@ -273,4 +305,17 @@ class Material:
         gl.glBindTexture(gl.GL_TEXTURE_2D, self.texture)
 
     def destroy(self):
-        gl.glDeleteTextures(1, (self.texture,))
+        gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)  # Unbind the FBO
+        gl.glBindBuffer(gl.GL_PIXEL_UNPACK_BUFFER, 0)  # Unbind the PBO
+        gl.glBindTexture(gl.GL_TEXTURE_2D, 0)  # Unbind the texture
+
+        if self.fbo is not None:
+            gl.glDeleteBuffers(1, [self.fbo])
+            self.fbo = None
+        if self.pbo is not None:
+            gl.glDeleteBuffers(1, [self.pbo])
+            self.pbo = None
+        if self.texture is not None:
+            gl.glDeleteTextures(1, [self.texture])
+            self.texture = None
+        gl.glFlush()

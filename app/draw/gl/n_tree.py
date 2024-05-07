@@ -27,7 +27,7 @@ class NTree(BSPTree):
     def __init__(self, depth):
         super().__init__(0, 0, depth)
         self.viewport = None
-        self.visible_leafs = []
+        self.visible_leaves = []
         self.mega_leaf = None
 
     def set_size(self, w, h):
@@ -39,25 +39,24 @@ class NTree(BSPTree):
         not_visible = []
         self.viewport = viewport
         self.traverse(viewport, visible, not_visible)
-        if visible != self.visible_leafs:
+        if visible != self.visible_leaves:
             # print("Visible count: ", len(visible))
-            self.visible_leafs = visible
-            #self.build_mega_leaf()
+            self.visible_leaves = visible
+            self.build_mega_leaf()
 
     def build_mega_leaf(self):
-        if len(self.visible_leafs) == 0:
+        if len(self.visible_leaves) == 0:
             self.mega_leaf = None
             return
 
-        x1 = min([v.x1 for v in self.visible_leafs])
-        x2 = max([v.x2 for v in self.visible_leafs])
-        y1 = min([v.y1 for v in self.visible_leafs])
-        y2 = max([v.y2 for v in self.visible_leafs])
-        level = max([v.level for v in self.visible_leafs])
+        x1 = min([v.x1 for v in self.visible_leaves])
+        x2 = max([v.x2 for v in self.visible_leaves])
+        y1 = min([v.y1 for v in self.visible_leaves])
+        y2 = max([v.y2 for v in self.visible_leaves])
+        level = max([v.level for v in self.visible_leaves])
 
-        if self.mega_leaf is None or not self.mega_leaf.contains(x1, y1, x2, y2, level):
-            w = x2 - x1
-            h = y2 - y1
-            self.mega_leaf = NTreeLeaf(x1, y1, w, h, level)
-            #print("Mega leaf updated", self.mega_leaf, level)
-            # print("Mega leaf updated2 ", self.mega_leaf.dump())
+        if self.mega_leaf is None:
+            self.mega_leaf = NTreeLeaf(x1, y1, x2 - x1, y2 - y1, level)
+        elif not self.mega_leaf.contains(x1, y1, x2, y2, level):
+            self.mega_leaf = NTreeLeaf(x1, y1, x2 - x1, y2 - y1, level)
+            #print("mega leaf updated", self.mega_leaf.w, self.mega_leaf.h)

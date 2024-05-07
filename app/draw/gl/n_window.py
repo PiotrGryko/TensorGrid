@@ -22,13 +22,16 @@ class NWindow:
         self.render_func = None
         self.viewport_updated_func = None
         self.zoom_percent = 0
+        self.formatted_zoom = None
 
-        self.n_nodes_shader = NShader()
-        self.n_colors_shader = NShader()
-        self.n_material_one_shader = NShader()
-        self.n_material_two_shader = NShader()
-        self.n_colors_texture_material_one_shader = NShader()
-        self.n_colors_texture_material_two_shader = NShader()
+        self.n_debug_shader = NShader()
+        self.n_points_shader = NShader()
+        self.n_instances_from_buffer_shader = NShader()
+        self.n_instances_from_texture_shader = NShader()
+        self.n_static_texture_shader = NShader()
+        self.n_color_map_texture_shader = NShader()
+        self.n_color_map_v2_texture_shader = NShader()
+
 
     def calculate_min_zoom(self, n_net):
         content_width, content_height = n_net.total_width, n_net.total_height
@@ -49,7 +52,7 @@ class NWindow:
         # Set GLFW context hints
         glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
         glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
-        glfw.window_hint(glfw.SAMPLES,4)
+        glfw.window_hint(glfw.SAMPLES, 4)
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
         glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, glfw.TRUE)
         glfw.window_hint(glfw.RESIZABLE, gl.GL_TRUE)
@@ -95,7 +98,6 @@ class NWindow:
         sy = y / self.height * 2.0
         return sx, sy
 
-
     def viewport_to_world_cords(self):
         '''
         :return: current viewport in world coordinates
@@ -128,6 +130,15 @@ class NWindow:
         sy2 = (y2 + 1) * self.height / 2.0
         return (sx1, sy1, sx2, sy2)
 
+    def world_coors_to_window_coords(self, x1, y1, x2, y2):
+        (sx1, sy1, sx2, sy2, zoom_factor) = self.world_coords_to_screen_coords(
+            x1,
+            y1,
+            x2,
+            y2)
+        (wx1, wy1, wx2, wy2) = self.screen_coords_to_window_coords(sx1, sy1, sx2, sy2)
+        return (wx1, wy1, wx2, wy2)
+
     def on_viewport_updated(self):
         if self.viewport_updated_func:
             self.viewport_updated_func()
@@ -147,7 +158,6 @@ class NWindow:
 
         delta = - y_offset * self.zoom_step
         self.zoom_factor += delta
-        # print("Zoom offset ",y_offset, self.zoom_factor)
         if self.zoom_factor <= self.min_zoom:
             self.zoom_factor = self.min_zoom
 
@@ -157,10 +167,10 @@ class NWindow:
         self.projection.zoom(zoom_x, zoom_y, self.zoom_factor)
         self.on_viewport_updated()
 
-        zoom_percent = self.zoom_factor / self.max_zoom
-        formatted = "{:.1%}".format(zoom_percent)
-        if self.zoom_percent != formatted:
-            self.zoom_percent = formatted
+        self.zoom_percent = self.zoom_factor / self.max_zoom
+        formatted = "{:.0%}".format(self.zoom_percent)
+        if self.formatted_zoom != formatted:
+            self.formatted_zoom = formatted
             print("zoom: ", formatted)
 
     def mouse_button_callback(self, window, button, action, mods):

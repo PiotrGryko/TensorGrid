@@ -141,7 +141,7 @@ class BSPLeaf:
         if len(self.children) == 0:
             count = 1
         for c in self.children:
-            count += c.edge_leafs_count()
+            count += c.edge_leaves_count()
         return count
 
     def edge_leafs(self):
@@ -149,13 +149,13 @@ class BSPLeaf:
         if len(self.children) == 0:
             result.append(self)
         for c in self.children:
-            result += c.edge_leafs()
+            result += c.edge_leaves()
         return result
 
     def leafs(self):
         result = [self]
         for c in self.children:
-            result += c.leafs()
+            result += c.leaves()
         return result
 
     def dump(self, indent):

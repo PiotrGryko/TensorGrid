@@ -64,11 +64,11 @@ class BSPLeaf:
         if step < depth:
             step += 1
             # 300.0 600.0 | 300.0 600.0
-            self.generate_leafs()
+            self.generate_leaves()
             for c in self.children:
                 c.generate(depth, step)
 
-    def generate_leafs(self):
+    def generate_leaves(self):
         self.generated = True
 
         if self.w > self.h:
@@ -147,22 +147,12 @@ class BSPLeaf:
         if is_fully_visible:
             visible.append(self)
             return True
-        # if contains_viewport:
-        #     max_depth = self.level + 5
-        # if max_depth is None:
-        #     max_depth = self.level + 5
-        # if self.level == max_depth:
-        #     visible.append(self)
-        #     return True
         if self.w < w/4 and self.h < h/4 and is_visible:
             visible.append(self)
             return True
         if not self.generated:
-            #print("Leafs loaded",self)
-            self.generate_leafs()
-        # if len(self.children) == 0:
-        #     visible.append(self)
-        #     return True
+            #print("Leaves loaded",self)
+            self.generate_leaves()
         for c in self.children:
             c.traverse(viewport, visible, not_visible, max_depth)
         return True
@@ -173,26 +163,26 @@ class BSPLeaf:
             count += c.count()
         return count
 
-    def edge_leafs_count(self):
+    def edge_leaves_count(self):
         count = 0
         if len(self.children) == 0:
             count = 1
         for c in self.children:
-            count += c.edge_leafs_count()
+            count += c.edge_leaves_count()
         return count
 
-    def edge_leafs(self):
+    def edge_leaves(self):
         result = []
         if len(self.children) == 0:
             result.append(self)
         for c in self.children:
-            result += c.edge_leafs()
+            result += c.edge_leaves()
         return result
 
-    def leafs(self):
+    def leaves(self):
         result = [self]
         for c in self.children:
-            result += c.leafs()
+            result += c.leaves()
         return result
 
     def dump(self, indent):
@@ -212,13 +202,13 @@ class BSPTree:
         self.width = width
         self.height = height
         self.leaf = BSPLeaf(0, 0, self.width, self.height, 0)
-        self.edge_leafs = {}
-        self.edge_leafs_grid = None
+        self.edge_leaves = {}
+        self.edge_leaves_grid = None
         self.edge_leaf_width = 0
         self.edge_leaf_height = 0
         self.grid_size = 0
         self.depth = depth
-        # Set to true to generate leafs dynamically
+        # Set to true to generate leaves dynamically
         self.lazy_load = True
 
     def set_size(self, w, h):
@@ -234,7 +224,7 @@ class BSPTree:
             self.leaf.generate(self.depth)
             print("Tree generated", time.time() - start_time)
         else:
-            print("Tree configured for lazy load. Leafs will load dynamically")
+            print("Tree configured for lazy load. Leaves will load dynamically")
 
     def traverse(self, viewport, visible, not_visible):
         self.leaf.traverse(viewport, visible, not_visible)
@@ -243,17 +233,17 @@ class BSPTree:
         result = f"BSPTree w:{self.width} h:{self.height}"
         for c in self.leaf.children:
             result += c.dump("")
-        result += f"leafs count: {self.count()} edge leafs count: {self.edge_leafs_count()}"
+        result += f"leaves count: {self.count()} edge leaves count: {self.edge_leaves_count()}"
         return result
 
     def count(self):
         return self.leaf.count()
 
-    def edge_leafs_count(self):
-        return self.leaf.edge_leafs_count()
+    def edge_leaves_count(self):
+        return self.leaf.edge_leaves_count()
 
-    def get_edge_leafs(self):
-        return self.leaf.edge_leafs()
+    def get_edge_leaves(self):
+        return self.leaf.edge_leaves()
 
-    def get_leafs(self):
-        return self.leaf.leafs()
+    def get_leaves(self):
+        return self.leaf.leaves()
